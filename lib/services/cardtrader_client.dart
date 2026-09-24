@@ -20,6 +20,9 @@ class CardTraderClient {
 
   static const int mtgGameId = 1;
 
+  /// In-memory blueprint cache keyed by expansion id.
+  final Map<int, List<CtBlueprint>> _blueprintCache = {};
+
   Future<void> _auth() async {
     final token = await tokenProvider();
     if (token == null || token.isEmpty) {
@@ -45,17 +48,48 @@ class CardTraderClient {
       ..sort((a, b) => a.name.compareTo(b.name));
   }
 
-  Future<List<CtBlueprint>> listBlueprints(int expansionId) async {
+  Future<List<CtBlueprint>> listBlueprints(
+    int expansionId, {
+    bool forceRefresh = false,
+  }) async {
+    if (!forceRefresh && _blueprintCache.containsKey(expansionId)) {
+      return _blueprintCache[expansionId]!;
+    }
     await _auth();
     final res = await _dio.get<List<dynamic>>(
       '/blueprints/export',
       queryParameters: {'expansion_id': expansionId},
     );
-    return (res.data ?? [])
+    final list = (res.data ?? [])
         .whereType<Map<String, dynamic>>()
         .map(CtBlueprint.fromJson)
         .toList()
       ..sort((a, b) => a.name.compareTo(b.name));
+    _blueprintCache[expansionId] = list;
+    return list;
+  }
+
+  /// Instant local filter against a cached expansion (load once, suggest as user types).
+  Future<List<CtBlueprint>> suggestBlueprints(
+    String query, {
+    required int expansionId,
+    int limit = 20,
+  }) async {
+    final q = query.trim().toLowerCase();
+    if (q.length < 2) return [];
+    final pool = await listBlueprints(expansionId);
+    final starts = <CtBlueprint>[];
+    final contains = <CtBlueprint>[];
+    for (final b in pool) {
+      final name = b.name.toLowerCase();
+      if (name.startsWith(q)) {
+        starts.add(b);
+      } else if (name.contains(q)) {
+        contains.add(b);
+      }
+      if (starts.length >= limit) break;
+    }
+    return [...starts, ...contains].take(limit).toList();
   }
 
   Future<List<CtBlueprint>> searchBlueprintsByName(
@@ -66,17 +100,15 @@ class CardTraderClient {
     final q = query.trim().toLowerCase();
     if (q.isEmpty) return [];
 
-    List<CtBlueprint> pool;
     if (expansionId != null) {
-      pool = await listBlueprints(expansionId);
-    } else {
-      // Expansion-scoped search is preferred; without it, scan a few recent expansions.
-      final expansions = await listMtgExpansions();
-      pool = [];
-      for (final exp in expansions.take(8)) {
-        pool.addAll(await listBlueprints(exp.id));
-        if (pool.length > 2000) break;
-      }
+      return suggestBlueprints(query, expansionId: expansionId, limit: limit);
+    }
+
+    final expansions = await listMtgExpansions();
+    final pool = <CtBlueprint>[];
+    for (final exp in expansions.take(8)) {
+      pool.addAll(await listBlueprints(exp.id));
+      if (pool.length > 2000) break;
     }
 
     return pool
@@ -104,6 +136,12 @@ class CardTraderClient {
         }
       }
     }
+
+    listings.sort((a, b) {
+      final ac = a.priceCents ?? 1 << 30;
+      final bc = b.priceCents ?? 1 << 30;
+      return ac.compareTo(bc);
+    });
 
     int? minDirect;
     int? minZero;
@@ -174,26 +212,52 @@ class CtBlueprint {
     required this.name,
     required this.expansionId,
     this.expansionName,
+    this.imageUrl,
+    this.scryfallId,
   });
+
   factory CtBlueprint.fromJson(Map<String, dynamic> json) {
     final expansion = json['expansion'];
     String? expansionName;
     int expansionId = json['expansion_id'] as int? ?? 0;
     if (expansion is Map<String, dynamic>) {
-      expansionName = expansion['name'] as String?;
+      expansionName = expansion['name'] as String? ?? expansion['code'] as String?;
       expansionId = expansion['id'] as int? ?? expansionId;
     }
+
+    String? imageUrl = json['image_url'] as String?;
+    final image = json['image'];
+    if ((imageUrl == null || imageUrl.isEmpty) && image is Map<String, dynamic>) {
+      imageUrl = image['show'] as String? ??
+          image['preview'] as String? ??
+          image['url'] as String?;
+    }
+
     return CtBlueprint(
       id: json['id'] as int,
       name: json['name'] as String? ?? '',
       expansionId: expansionId,
       expansionName: expansionName,
+      imageUrl: imageUrl,
+      scryfallId: json['scryfall_id'] as String?,
     );
   }
+
   final int id;
   final String name;
   final int expansionId;
   final String? expansionName;
+  final String? imageUrl;
+  final String? scryfallId;
+
+  String? get absoluteImageUrl {
+    final u = imageUrl?.trim();
+    if (u == null || u.isEmpty) return null;
+    if (u.startsWith('http://') || u.startsWith('https://')) return u;
+    if (u.startsWith('//')) return 'https:$u';
+    if (u.startsWith('/')) return 'https://www.cardtrader.com$u';
+    return 'https://www.cardtrader.com/$u';
+  }
 }
 
 class CtListing {
@@ -203,6 +267,8 @@ class CtListing {
     required this.canSellViaHub,
     this.quantity,
     this.sellerName,
+    this.condition,
+    this.foil,
   });
 
   factory CtListing.fromJson(Map<String, dynamic> json) {
@@ -218,12 +284,21 @@ class CtListing {
     if (cents == null && priceObj is Map<String, dynamic>) {
       cents = priceObj['cents'] as int?;
     }
+    final props = json['properties_hash'] ?? json['properties'];
+    String? condition;
+    bool? foil;
+    if (props is Map<String, dynamic>) {
+      condition = props['condition'] as String?;
+      foil = props['mtg_foil'] as bool? ?? props['foil'] as bool?;
+    }
     return CtListing(
       id: json['id'] as int? ?? 0,
       priceCents: cents,
       canSellViaHub: canHub,
       quantity: json['quantity'] as int?,
       sellerName: seller,
+      condition: condition,
+      foil: foil,
     );
   }
 
@@ -232,6 +307,8 @@ class CtListing {
   final bool canSellViaHub;
   final int? quantity;
   final String? sellerName;
+  final String? condition;
+  final bool? foil;
 }
 
 class CtMarketplaceSummary {
@@ -250,4 +327,11 @@ class CtMarketplaceSummary {
   final int? minZeroCents;
   final int listingCount;
   final int zeroListingCount;
+
+  /// Prefer Zero min when available; otherwise cheapest direct listing.
+  int? get bestPriceCents => minZeroCents ?? minDirectCents;
+
+  /// Cheapest listings first (already sorted by client).
+  List<CtListing> bestListings({int limit = 5}) =>
+      listings.where((l) => l.priceCents != null).take(limit).toList();
 }
