@@ -11,7 +11,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'card_price_tracker'));
 
   @override
-  int get schemaVersion => 3;
+  int get schemaVersion => 4;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -35,6 +35,10 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(watchlistItems, watchlistItems.language);
             await m.addColumn(watchlistItems, watchlistItems.minCondition);
           }
+          if (from < 4) {
+            await m.addColumn(watchlistItems, watchlistItems.sellerName);
+            await m.addColumn(watchlistItems, watchlistItems.minSellerQuantity);
+          }
         },
       );
 
@@ -53,7 +57,7 @@ class AppDatabase extends _$AppDatabase {
         final card = row.readTable(cards);
         final latestCm = await _latestSnapshot(card.id, 'cardmarket');
         final latestCt = await _latestSnapshot(card.id, 'cardtrader');
-        final prevCm = await _previousSnapshot(card.id, 'cardmarket');
+        final prevCm = await _previousDistinctCmTrend(card.id, latestCm);
         result.add(
           WatchlistRow(
             item: item,
@@ -78,14 +82,27 @@ class AppDatabase extends _$AppDatabase {
         .getSingleOrNull();
   }
 
-  Future<PriceSnapshot?> _previousSnapshot(int cardId, String source) {
-    return (select(priceSnapshots)
+  /// Older CM snapshot with a different trend than [latest], for real history Δ.
+  Future<PriceSnapshot?> _previousDistinctCmTrend(
+    int cardId,
+    PriceSnapshot? latest,
+  ) async {
+    if (latest?.cmTrendCents == null) return null;
+    final rows = await (select(priceSnapshots)
           ..where(
-            (t) => t.cardId.equals(cardId) & t.source.equals(source),
+            (t) => t.cardId.equals(cardId) & t.source.equals('cardmarket'),
           )
           ..orderBy([(t) => OrderingTerm.desc(t.capturedAt)])
-          ..limit(1, offset: 1))
-        .getSingleOrNull();
+          ..limit(30))
+        .get();
+    for (final row in rows) {
+      if (row.id == latest!.id) continue;
+      if (row.cmTrendCents != null &&
+          row.cmTrendCents != latest.cmTrendCents) {
+        return row;
+      }
+    }
+    return null;
   }
 
   Future<List<PriceSnapshot>> snapshotsForCard(int cardId, {String? source}) {
@@ -122,6 +139,8 @@ class AppDatabase extends _$AppDatabase {
     bool? foil,
     String? language,
     String? minCondition,
+    String? sellerName,
+    int? minSellerQuantity,
     int quantity = 1,
     String notes = '',
   }) async {
@@ -166,6 +185,7 @@ class AppDatabase extends _$AppDatabase {
       );
     }
 
+    final seller = sellerName?.trim();
     final existingItem = await (select(watchlistItems)
           ..where((t) => t.cardId.equals(cardId))
           ..limit(1))
@@ -179,6 +199,10 @@ class AppDatabase extends _$AppDatabase {
           foil: Value(foil),
           language: Value(language),
           minCondition: Value(minCondition),
+          sellerName: Value(
+            seller == null || seller.isEmpty ? null : seller,
+          ),
+          minSellerQuantity: Value(minSellerQuantity),
         ),
       );
     } else {
@@ -189,6 +213,10 @@ class AppDatabase extends _$AppDatabase {
           foil: Value(foil),
           language: Value(language),
           minCondition: Value(minCondition),
+          sellerName: Value(
+            seller == null || seller.isEmpty ? null : seller,
+          ),
+          minSellerQuantity: Value(minSellerQuantity),
         ),
       );
     }
@@ -301,6 +329,21 @@ class WatchlistRow {
     final prev = previousCm?.cmTrendCents;
     if (cur == null || prev == null || prev == 0) return null;
     return ((cur - prev) / prev) * 100;
+  }
+
+  /// CT best (Zero, else Direct) minus CM trend — what users usually mean by Δ.
+  int? get ctVsCmSpreadCents {
+    final cm = latestCm?.cmTrendCents;
+    final ct = latestCt?.ctMinZeroCents ?? latestCt?.ctMinDirectCents;
+    if (cm == null || ct == null) return null;
+    return ct - cm;
+  }
+
+  double? get ctVsCmSpreadPct {
+    final cm = latestCm?.cmTrendCents;
+    final spread = ctVsCmSpreadCents;
+    if (cm == null || spread == null || cm == 0) return null;
+    return (spread / cm) * 100;
   }
 }
 

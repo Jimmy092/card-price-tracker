@@ -34,6 +34,10 @@ class WatchlistItems extends Table {
   TextColumn get language => text().nullable()();
   /// Minimum condition label (e.g. `Near Mint`), null = any.
   TextColumn get minCondition => text().nullable()();
+  /// Seller username substring filter (CardTrader), null/empty = any.
+  TextColumn get sellerName => text().nullable()();
+  /// Minimum copies a listing must have, null = any.
+  IntColumn get minSellerQuantity => integer().nullable()();
   IntColumn get targetBuyCents => integer().nullable()();
   IntColumn get targetSellCents => integer().nullable()();
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();

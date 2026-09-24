@@ -46,6 +46,8 @@ class SyncService {
           foil: item.foil,
           language: item.language,
           minCondition: minCond,
+          sellerName: item.sellerName,
+          minQuantity: item.minSellerQuantity,
         );
 
         // Backfill image from CT blueprint when missing.

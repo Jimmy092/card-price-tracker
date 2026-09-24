@@ -55,6 +55,8 @@ class _SearchScreenState extends State<SearchScreen> {
   bool? _foil;
   /// null = any condition; otherwise minimum accepted grade.
   CardCondition? _minCondition;
+  final _sellerQuery = TextEditingController();
+  final _minQtyQuery = TextEditingController();
 
   bool _loadingNames = false;
   bool _loadingPrintings = false;
@@ -76,7 +78,20 @@ class _SearchScreenState extends State<SearchScreen> {
     _query.removeListener(_onQueryChanged);
     _query.dispose();
     _focus.dispose();
+    _sellerQuery.dispose();
+    _minQtyQuery.dispose();
     super.dispose();
+  }
+
+  String? get _sellerFilter {
+    final t = _sellerQuery.text.trim();
+    return t.isEmpty ? null : t;
+  }
+
+  int? get _minQtyFilter {
+    final t = _minQtyQuery.text.trim();
+    if (t.isEmpty) return null;
+    return int.tryParse(t);
   }
 
   void _onQueryChanged() {
@@ -240,6 +255,8 @@ class _SearchScreenState extends State<SearchScreen> {
           foil: _foil,
           language: _language,
           minCondition: _minCondition,
+          sellerName: _sellerFilter,
+          minQuantity: _minQtyFilter,
         );
         if (!mounted || priceGen != _priceGen) return;
         setState(() {
@@ -271,6 +288,8 @@ class _SearchScreenState extends State<SearchScreen> {
             foil: _foil,
             language: _language,
             minCondition: _minCondition,
+            sellerName: _sellerFilter,
+            minQuantity: _minQtyFilter,
           );
       if (!mounted || priceGen != _priceGen) return;
       setState(() {
@@ -349,6 +368,8 @@ class _SearchScreenState extends State<SearchScreen> {
           foil: _foil,
           language: _language,
           minCondition: _minCondition?.label,
+          sellerName: _sellerFilter,
+          minSellerQuantity: _minQtyFilter,
         );
     if (!mounted) return;
 
@@ -433,6 +454,8 @@ class _SearchScreenState extends State<SearchScreen> {
               language: _language,
               foil: _foil,
               minCondition: _minCondition,
+              sellerController: _sellerQuery,
+              minQtyController: _minQtyQuery,
               onLanguageChanged: (v) {
                 setState(() => _language = v);
                 _onFiltersChanged();
@@ -445,6 +468,7 @@ class _SearchScreenState extends State<SearchScreen> {
                 setState(() => _minCondition = v);
                 _onFiltersChanged();
               },
+              onSellerOrQtyChanged: _onFiltersChanged,
             ),
           ),
           if (_error != null)
@@ -697,17 +721,23 @@ class _ListingFilters extends StatelessWidget {
     required this.language,
     required this.foil,
     required this.minCondition,
+    required this.sellerController,
+    required this.minQtyController,
     required this.onLanguageChanged,
     required this.onFoilChanged,
     required this.onMinConditionChanged,
+    required this.onSellerOrQtyChanged,
   });
 
   final String? language;
   final bool? foil;
   final CardCondition? minCondition;
+  final TextEditingController sellerController;
+  final TextEditingController minQtyController;
   final ValueChanged<String?> onLanguageChanged;
   final ValueChanged<bool?> onFoilChanged;
   final ValueChanged<CardCondition?> onMinConditionChanged;
+  final VoidCallback onSellerOrQtyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -799,6 +829,47 @@ class _ListingFilters extends StatelessWidget {
             ),
           ],
           onChanged: onMinConditionChanged,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: TextField(
+                controller: sellerController,
+                decoration: const InputDecoration(
+                  labelText: 'Seller',
+                  hintText: 'Username contains…',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => onSellerOrQtyChanged(),
+                onEditingComplete: onSellerOrQtyChanged,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: TextField(
+                controller: minQtyController,
+                decoration: const InputDecoration(
+                  labelText: 'Min qty',
+                  hintText: 'e.g. 4',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                keyboardType: TextInputType.number,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => onSellerOrQtyChanged(),
+                onEditingComplete: onSellerOrQtyChanged,
+              ),
+            ),
+            IconButton(
+              tooltip: 'Apply seller / qty filters',
+              onPressed: onSellerOrQtyChanged,
+              icon: const Icon(Icons.filter_alt),
+            ),
+          ],
         ),
       ],
     );

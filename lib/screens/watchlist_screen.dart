@@ -133,6 +133,11 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                 row.item.language!.toUpperCase(),
                               if (row.item.minCondition != null)
                                 '≥ ${row.item.minCondition}',
+                              if (row.item.sellerName != null &&
+                                  row.item.sellerName!.isNotEmpty)
+                                'seller:${row.item.sellerName}',
+                              if (row.item.minSellerQuantity != null)
+                                'min qty ${row.item.minSellerQuantity}',
                               'qty ${row.item.quantity}',
                             ].join(' · '),
                             style: Theme.of(context).textTheme.bodySmall,
@@ -163,9 +168,16 @@ class _WatchlistScreenState extends State<WatchlistScreen> {
                                     label: 'CT Direct',
                                     value: formatEurCents(ctDirect),
                                   ),
+                                if (row.ctVsCmSpreadCents != null)
+                                  _PriceTag(
+                                    label: 'CT−CM',
+                                    value:
+                                        '${formatSignedEurCents(row.ctVsCmSpreadCents)}'
+                                        '${row.ctVsCmSpreadPct == null ? '' : ' (${formatPct(row.ctVsCmSpreadPct)})'}',
+                                  ),
                                 if (row.cmTrendChangePct != null)
                                   _PriceTag(
-                                    label: 'Δ',
+                                    label: 'CM Δ',
                                     value: formatPct(row.cmTrendChangePct),
                                   ),
                               ],

@@ -999,6 +999,28 @@ class $WatchlistItemsTable extends WatchlistItems
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _sellerNameMeta = const VerificationMeta(
+    'sellerName',
+  );
+  @override
+  late final GeneratedColumn<String> sellerName = GeneratedColumn<String>(
+    'seller_name',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _minSellerQuantityMeta = const VerificationMeta(
+    'minSellerQuantity',
+  );
+  @override
+  late final GeneratedColumn<int> minSellerQuantity = GeneratedColumn<int>(
+    'min_seller_quantity',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _targetBuyCentsMeta = const VerificationMeta(
     'targetBuyCents',
   );
@@ -1042,6 +1064,8 @@ class $WatchlistItemsTable extends WatchlistItems
     foil,
     language,
     minCondition,
+    sellerName,
+    minSellerQuantity,
     targetBuyCents,
     targetSellCents,
     addedAt,
@@ -1099,6 +1123,21 @@ class $WatchlistItemsTable extends WatchlistItems
         minCondition.isAcceptableOrUnknown(
           data['min_condition']!,
           _minConditionMeta,
+        ),
+      );
+    }
+    if (data.containsKey('seller_name')) {
+      context.handle(
+        _sellerNameMeta,
+        sellerName.isAcceptableOrUnknown(data['seller_name']!, _sellerNameMeta),
+      );
+    }
+    if (data.containsKey('min_seller_quantity')) {
+      context.handle(
+        _minSellerQuantityMeta,
+        minSellerQuantity.isAcceptableOrUnknown(
+          data['min_seller_quantity']!,
+          _minSellerQuantityMeta,
         ),
       );
     }
@@ -1163,6 +1202,14 @@ class $WatchlistItemsTable extends WatchlistItems
         DriftSqlType.string,
         data['${effectivePrefix}min_condition'],
       ),
+      sellerName: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}seller_name'],
+      ),
+      minSellerQuantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}min_seller_quantity'],
+      ),
       targetBuyCents: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}target_buy_cents'],
@@ -1198,6 +1245,12 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
 
   /// Minimum condition label (e.g. `Near Mint`), null = any.
   final String? minCondition;
+
+  /// Seller username substring filter (CardTrader), null/empty = any.
+  final String? sellerName;
+
+  /// Minimum copies a listing must have, null = any.
+  final int? minSellerQuantity;
   final int? targetBuyCents;
   final int? targetSellCents;
   final DateTime addedAt;
@@ -1209,6 +1262,8 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
     this.foil,
     this.language,
     this.minCondition,
+    this.sellerName,
+    this.minSellerQuantity,
     this.targetBuyCents,
     this.targetSellCents,
     required this.addedAt,
@@ -1228,6 +1283,12 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
     }
     if (!nullToAbsent || minCondition != null) {
       map['min_condition'] = Variable<String>(minCondition);
+    }
+    if (!nullToAbsent || sellerName != null) {
+      map['seller_name'] = Variable<String>(sellerName);
+    }
+    if (!nullToAbsent || minSellerQuantity != null) {
+      map['min_seller_quantity'] = Variable<int>(minSellerQuantity);
     }
     if (!nullToAbsent || targetBuyCents != null) {
       map['target_buy_cents'] = Variable<int>(targetBuyCents);
@@ -1252,6 +1313,12 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
       minCondition: minCondition == null && nullToAbsent
           ? const Value.absent()
           : Value(minCondition),
+      sellerName: sellerName == null && nullToAbsent
+          ? const Value.absent()
+          : Value(sellerName),
+      minSellerQuantity: minSellerQuantity == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minSellerQuantity),
       targetBuyCents: targetBuyCents == null && nullToAbsent
           ? const Value.absent()
           : Value(targetBuyCents),
@@ -1275,6 +1342,8 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
       foil: serializer.fromJson<bool?>(json['foil']),
       language: serializer.fromJson<String?>(json['language']),
       minCondition: serializer.fromJson<String?>(json['minCondition']),
+      sellerName: serializer.fromJson<String?>(json['sellerName']),
+      minSellerQuantity: serializer.fromJson<int?>(json['minSellerQuantity']),
       targetBuyCents: serializer.fromJson<int?>(json['targetBuyCents']),
       targetSellCents: serializer.fromJson<int?>(json['targetSellCents']),
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
@@ -1291,6 +1360,8 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
       'foil': serializer.toJson<bool?>(foil),
       'language': serializer.toJson<String?>(language),
       'minCondition': serializer.toJson<String?>(minCondition),
+      'sellerName': serializer.toJson<String?>(sellerName),
+      'minSellerQuantity': serializer.toJson<int?>(minSellerQuantity),
       'targetBuyCents': serializer.toJson<int?>(targetBuyCents),
       'targetSellCents': serializer.toJson<int?>(targetSellCents),
       'addedAt': serializer.toJson<DateTime>(addedAt),
@@ -1305,6 +1376,8 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
     Value<bool?> foil = const Value.absent(),
     Value<String?> language = const Value.absent(),
     Value<String?> minCondition = const Value.absent(),
+    Value<String?> sellerName = const Value.absent(),
+    Value<int?> minSellerQuantity = const Value.absent(),
     Value<int?> targetBuyCents = const Value.absent(),
     Value<int?> targetSellCents = const Value.absent(),
     DateTime? addedAt,
@@ -1316,6 +1389,10 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
     foil: foil.present ? foil.value : this.foil,
     language: language.present ? language.value : this.language,
     minCondition: minCondition.present ? minCondition.value : this.minCondition,
+    sellerName: sellerName.present ? sellerName.value : this.sellerName,
+    minSellerQuantity: minSellerQuantity.present
+        ? minSellerQuantity.value
+        : this.minSellerQuantity,
     targetBuyCents: targetBuyCents.present
         ? targetBuyCents.value
         : this.targetBuyCents,
@@ -1335,6 +1412,12 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
       minCondition: data.minCondition.present
           ? data.minCondition.value
           : this.minCondition,
+      sellerName: data.sellerName.present
+          ? data.sellerName.value
+          : this.sellerName,
+      minSellerQuantity: data.minSellerQuantity.present
+          ? data.minSellerQuantity.value
+          : this.minSellerQuantity,
       targetBuyCents: data.targetBuyCents.present
           ? data.targetBuyCents.value
           : this.targetBuyCents,
@@ -1355,6 +1438,8 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
           ..write('foil: $foil, ')
           ..write('language: $language, ')
           ..write('minCondition: $minCondition, ')
+          ..write('sellerName: $sellerName, ')
+          ..write('minSellerQuantity: $minSellerQuantity, ')
           ..write('targetBuyCents: $targetBuyCents, ')
           ..write('targetSellCents: $targetSellCents, ')
           ..write('addedAt: $addedAt')
@@ -1371,6 +1456,8 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
     foil,
     language,
     minCondition,
+    sellerName,
+    minSellerQuantity,
     targetBuyCents,
     targetSellCents,
     addedAt,
@@ -1386,6 +1473,8 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
           other.foil == this.foil &&
           other.language == this.language &&
           other.minCondition == this.minCondition &&
+          other.sellerName == this.sellerName &&
+          other.minSellerQuantity == this.minSellerQuantity &&
           other.targetBuyCents == this.targetBuyCents &&
           other.targetSellCents == this.targetSellCents &&
           other.addedAt == this.addedAt);
@@ -1399,6 +1488,8 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
   final Value<bool?> foil;
   final Value<String?> language;
   final Value<String?> minCondition;
+  final Value<String?> sellerName;
+  final Value<int?> minSellerQuantity;
   final Value<int?> targetBuyCents;
   final Value<int?> targetSellCents;
   final Value<DateTime> addedAt;
@@ -1410,6 +1501,8 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
     this.foil = const Value.absent(),
     this.language = const Value.absent(),
     this.minCondition = const Value.absent(),
+    this.sellerName = const Value.absent(),
+    this.minSellerQuantity = const Value.absent(),
     this.targetBuyCents = const Value.absent(),
     this.targetSellCents = const Value.absent(),
     this.addedAt = const Value.absent(),
@@ -1422,6 +1515,8 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
     this.foil = const Value.absent(),
     this.language = const Value.absent(),
     this.minCondition = const Value.absent(),
+    this.sellerName = const Value.absent(),
+    this.minSellerQuantity = const Value.absent(),
     this.targetBuyCents = const Value.absent(),
     this.targetSellCents = const Value.absent(),
     this.addedAt = const Value.absent(),
@@ -1434,6 +1529,8 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
     Expression<bool>? foil,
     Expression<String>? language,
     Expression<String>? minCondition,
+    Expression<String>? sellerName,
+    Expression<int>? minSellerQuantity,
     Expression<int>? targetBuyCents,
     Expression<int>? targetSellCents,
     Expression<DateTime>? addedAt,
@@ -1446,6 +1543,8 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
       if (foil != null) 'foil': foil,
       if (language != null) 'language': language,
       if (minCondition != null) 'min_condition': minCondition,
+      if (sellerName != null) 'seller_name': sellerName,
+      if (minSellerQuantity != null) 'min_seller_quantity': minSellerQuantity,
       if (targetBuyCents != null) 'target_buy_cents': targetBuyCents,
       if (targetSellCents != null) 'target_sell_cents': targetSellCents,
       if (addedAt != null) 'added_at': addedAt,
@@ -1460,6 +1559,8 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
     Value<bool?>? foil,
     Value<String?>? language,
     Value<String?>? minCondition,
+    Value<String?>? sellerName,
+    Value<int?>? minSellerQuantity,
     Value<int?>? targetBuyCents,
     Value<int?>? targetSellCents,
     Value<DateTime>? addedAt,
@@ -1472,6 +1573,8 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
       foil: foil ?? this.foil,
       language: language ?? this.language,
       minCondition: minCondition ?? this.minCondition,
+      sellerName: sellerName ?? this.sellerName,
+      minSellerQuantity: minSellerQuantity ?? this.minSellerQuantity,
       targetBuyCents: targetBuyCents ?? this.targetBuyCents,
       targetSellCents: targetSellCents ?? this.targetSellCents,
       addedAt: addedAt ?? this.addedAt,
@@ -1502,6 +1605,12 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
     if (minCondition.present) {
       map['min_condition'] = Variable<String>(minCondition.value);
     }
+    if (sellerName.present) {
+      map['seller_name'] = Variable<String>(sellerName.value);
+    }
+    if (minSellerQuantity.present) {
+      map['min_seller_quantity'] = Variable<int>(minSellerQuantity.value);
+    }
     if (targetBuyCents.present) {
       map['target_buy_cents'] = Variable<int>(targetBuyCents.value);
     }
@@ -1524,6 +1633,8 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
           ..write('foil: $foil, ')
           ..write('language: $language, ')
           ..write('minCondition: $minCondition, ')
+          ..write('sellerName: $sellerName, ')
+          ..write('minSellerQuantity: $minSellerQuantity, ')
           ..write('targetBuyCents: $targetBuyCents, ')
           ..write('targetSellCents: $targetSellCents, ')
           ..write('addedAt: $addedAt')
@@ -3675,6 +3786,8 @@ typedef $$WatchlistItemsTableCreateCompanionBuilder =
       Value<bool?> foil,
       Value<String?> language,
       Value<String?> minCondition,
+      Value<String?> sellerName,
+      Value<int?> minSellerQuantity,
       Value<int?> targetBuyCents,
       Value<int?> targetSellCents,
       Value<DateTime> addedAt,
@@ -3688,6 +3801,8 @@ typedef $$WatchlistItemsTableUpdateCompanionBuilder =
       Value<bool?> foil,
       Value<String?> language,
       Value<String?> minCondition,
+      Value<String?> sellerName,
+      Value<int?> minSellerQuantity,
       Value<int?> targetBuyCents,
       Value<int?> targetSellCents,
       Value<DateTime> addedAt,
@@ -3755,6 +3870,16 @@ class $$WatchlistItemsTableFilterComposer
 
   ColumnFilters<String> get minCondition => $composableBuilder(
     column: $table.minCondition,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get sellerName => $composableBuilder(
+    column: $table.sellerName,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get minSellerQuantity => $composableBuilder(
+    column: $table.minSellerQuantity,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3836,6 +3961,16 @@ class $$WatchlistItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get sellerName => $composableBuilder(
+    column: $table.sellerName,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get minSellerQuantity => $composableBuilder(
+    column: $table.minSellerQuantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get targetBuyCents => $composableBuilder(
     column: $table.targetBuyCents,
     builder: (column) => ColumnOrderings(column),
@@ -3901,6 +4036,16 @@ class $$WatchlistItemsTableAnnotationComposer
 
   GeneratedColumn<String> get minCondition => $composableBuilder(
     column: $table.minCondition,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get sellerName => $composableBuilder(
+    column: $table.sellerName,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get minSellerQuantity => $composableBuilder(
+    column: $table.minSellerQuantity,
     builder: (column) => column,
   );
 
@@ -3978,6 +4123,8 @@ class $$WatchlistItemsTableTableManager
                 Value<bool?> foil = const Value.absent(),
                 Value<String?> language = const Value.absent(),
                 Value<String?> minCondition = const Value.absent(),
+                Value<String?> sellerName = const Value.absent(),
+                Value<int?> minSellerQuantity = const Value.absent(),
                 Value<int?> targetBuyCents = const Value.absent(),
                 Value<int?> targetSellCents = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
@@ -3989,6 +4136,8 @@ class $$WatchlistItemsTableTableManager
                 foil: foil,
                 language: language,
                 minCondition: minCondition,
+                sellerName: sellerName,
+                minSellerQuantity: minSellerQuantity,
                 targetBuyCents: targetBuyCents,
                 targetSellCents: targetSellCents,
                 addedAt: addedAt,
@@ -4002,6 +4151,8 @@ class $$WatchlistItemsTableTableManager
                 Value<bool?> foil = const Value.absent(),
                 Value<String?> language = const Value.absent(),
                 Value<String?> minCondition = const Value.absent(),
+                Value<String?> sellerName = const Value.absent(),
+                Value<int?> minSellerQuantity = const Value.absent(),
                 Value<int?> targetBuyCents = const Value.absent(),
                 Value<int?> targetSellCents = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
@@ -4013,6 +4164,8 @@ class $$WatchlistItemsTableTableManager
                 foil: foil,
                 language: language,
                 minCondition: minCondition,
+                sellerName: sellerName,
+                minSellerQuantity: minSellerQuantity,
                 targetBuyCents: targetBuyCents,
                 targetSellCents: targetSellCents,
                 addedAt: addedAt,

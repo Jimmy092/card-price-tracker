@@ -168,12 +168,15 @@ class CardTraderClient {
   /// Marketplace listings for a blueprint. Separates Zero vs direct mins.
   ///
   /// [foil] and [language] are sent to CardTrader (`foil`, `language` query
-  /// params). [minCondition] is applied client-side (listings at least that good).
+  /// params). [minCondition], [sellerName], and [minQuantity] are applied
+  /// client-side on the returned listings.
   Future<CtMarketplaceSummary> marketplaceForBlueprint(
     int blueprintId, {
     bool? foil,
     String? language,
     CardCondition? minCondition,
+    String? sellerName,
+    int? minQuantity,
   }) async {
     await _auth();
     final query = <String, dynamic>{'blueprint_id': blueprintId};
@@ -200,6 +203,21 @@ class CardTraderClient {
     if (minCondition != null) {
       listings = listings
           .where((l) => CardCondition.meetsMinimum(l.condition, minCondition))
+          .toList();
+    }
+
+    final sellerQ = sellerName?.trim().toLowerCase();
+    if (sellerQ != null && sellerQ.isNotEmpty) {
+      listings = listings
+          .where(
+            (l) => (l.sellerName ?? '').toLowerCase().contains(sellerQ),
+          )
+          .toList();
+    }
+
+    if (minQuantity != null && minQuantity > 0) {
+      listings = listings
+          .where((l) => (l.quantity ?? 0) >= minQuantity)
           .toList();
     }
 

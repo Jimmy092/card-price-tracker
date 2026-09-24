@@ -136,6 +136,11 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
                                             item.language!.toUpperCase(),
                                           if (item.minCondition != null)
                                             'Min ${item.minCondition}',
+                                          if (item.sellerName != null &&
+                                              item.sellerName!.isNotEmpty)
+                                            'Seller ${item.sellerName}',
+                                          if (item.minSellerQuantity != null)
+                                            'Min qty ${item.minSellerQuantity}',
                                         ];
                                         if (bits.isEmpty) {
                                           return Text(
