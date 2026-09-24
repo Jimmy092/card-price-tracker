@@ -18,19 +18,58 @@ class SyncService {
 
   Future<SyncOutcome> syncCardTraderWatchlist({
     void Function(String message)? onProgress,
+    int? onlyCardId,
   }) async {
     final runId = await db.startSyncRun('cardtrader');
     var count = 0;
     try {
-      final cards = await db.allWatchlistCards();
-      final withBlueprint =
-          cards.where((c) => c.cardTraderBlueprintId != null).toList();
-      onProgress?.call('Syncing ${withBlueprint.length} CardTrader blueprints…');
+      final entries = (await db.allWatchlistEntries())
+          .where((e) => e.card.cardTraderBlueprintId != null)
+          .where((e) => onlyCardId == null || e.card.id == onlyCardId)
+          .toList();
+      onProgress?.call('Syncing ${entries.length} CardTrader blueprints…');
 
-      for (final card in withBlueprint) {
+      for (final entry in entries) {
+        final card = entry.card;
+        final item = entry.item;
         final bp = card.cardTraderBlueprintId!;
-        onProgress?.call('CT: ${card.name}');
-        final summary = await ct.marketplaceForBlueprint(bp);
+        final minCond = CardCondition.tryParse(item.minCondition);
+        final foilLabel = item.foil == true
+            ? 'foil'
+            : item.foil == false
+                ? 'non-foil'
+                : 'any foil';
+        onProgress?.call('CT: ${card.name} ($foilLabel)');
+
+        final summary = await ct.marketplaceForBlueprint(
+          bp,
+          foil: item.foil,
+          language: item.language,
+          minCondition: minCond,
+        );
+
+        // Backfill image from CT blueprint when missing.
+        if (card.imageUrl == null || card.imageUrl!.isEmpty) {
+          final expansionId = card.cardTraderExpansionId;
+          if (expansionId != null) {
+            try {
+              final list = await ct.listBlueprints(expansionId);
+              CtBlueprint? match;
+              for (final b in list) {
+                if (b.id == bp) {
+                  match = b;
+                  break;
+                }
+              }
+              final url = match?.absoluteImageUrl;
+              if (url != null && url.isNotEmpty) {
+                await (db.update(db.cards)..where((t) => t.id.equals(card.id)))
+                    .write(CardsCompanion(imageUrl: Value(url)));
+              }
+            } catch (_) {}
+          }
+        }
+
         await db.into(db.priceSnapshots).insert(
               PriceSnapshotsCompanion.insert(
                 cardId: card.id,
@@ -43,7 +82,6 @@ class SyncService {
               ),
             );
         count++;
-        // Light throttle to be polite to the API.
         await Future<void>.delayed(const Duration(milliseconds: 200));
       }
 
@@ -70,12 +108,18 @@ class SyncService {
     String? productsPath,
     String? priceGuidePath,
     void Function(String message)? onProgress,
+    int? onlyCardId,
   }) async {
     final runId = await db.startSyncRun('cardmarket');
     var count = 0;
     try {
       if (download && productsPath == null && priceGuidePath == null) {
-        await cm.downloadGuides(onProgress: onProgress);
+        final status = await cm.cacheStatus();
+        if (!status.ready) {
+          await cm.downloadGuides(onProgress: onProgress);
+        } else {
+          onProgress?.call('Using cached Cardmarket guides…');
+        }
       }
 
       onProgress?.call('Loading Cardmarket catalogue…');
@@ -83,18 +127,27 @@ class SyncService {
       onProgress?.call('Loading Cardmarket price guide…');
       final guides = await cm.loadPriceGuide(overridePath: priceGuidePath);
 
-      final watchCards = await db.allWatchlistCards();
+      final entries = (await db.allWatchlistEntries())
+          .where((e) => onlyCardId == null || e.card.id == onlyCardId)
+          .toList();
+
+      // cardId -> entry (for foil preference when writing snapshots)
+      final byCardId = {for (final e in entries) e.card.id: e};
+
       final byCmId = <int, Card>{
-        for (final c in watchCards)
-          if (c.cardmarketProductId != null) c.cardmarketProductId!: c,
+        for (final e in entries)
+          if (e.card.cardmarketProductId != null)
+            e.card.cardmarketProductId!: e.card,
       };
 
       // Link CM product ids by name when missing.
-      for (final card in watchCards) {
+      for (final entry in entries) {
+        final card = entry.card;
         if (card.cardmarketProductId != null) continue;
         CmProduct? match;
+        final nameLower = card.name.toLowerCase();
         for (final p in products.values) {
-          if (p.name.toLowerCase() == card.name.toLowerCase()) {
+          if (p.name.toLowerCase() == nameLower) {
             match = p;
             break;
           }
@@ -108,21 +161,23 @@ class SyncService {
       }
 
       final now = DateTime.now();
-      for (final entry in byCmId.entries) {
-        final productId = entry.key;
-        final card = entry.value;
+      for (final mapEntry in byCmId.entries) {
+        final productId = mapEntry.key;
+        final card = mapEntry.value;
         final guide = guides[productId];
         if (guide == null) continue;
+        final foilPref = byCardId[card.id]?.item.foil;
+        final cents = guide.centsFor(foil: foilPref);
         await db.into(db.priceSnapshots).insert(
               PriceSnapshotsCompanion.insert(
                 cardId: card.id,
                 source: 'cardmarket',
                 capturedAt: now,
-                cmTrendCents: Value(guide.trendCents),
-                cmLowCents: Value(guide.lowCents),
-                cmAvgCents: Value(guide.avgCents),
-                cmAvg7Cents: Value(guide.avg7Cents),
-                cmAvg30Cents: Value(guide.avg30Cents),
+                cmTrendCents: Value(cents.trend),
+                cmLowCents: Value(cents.low),
+                cmAvgCents: Value(cents.avg),
+                cmAvg7Cents: Value(cents.avg7),
+                cmAvg30Cents: Value(cents.avg30),
               ),
             );
         count++;
@@ -146,6 +201,34 @@ class SyncService {
         itemCount: count,
       );
       return SyncOutcome.error(e.toString());
+    }
+  }
+
+  /// Refresh CT + CM prices for one watchlist card (used right after Add).
+  Future<SyncOutcome> syncWatchlistCard(
+    int cardId, {
+    void Function(String message)? onProgress,
+  }) async {
+    final ctResult = await syncCardTraderWatchlist(
+      onProgress: onProgress,
+      onlyCardId: cardId,
+    );
+    if (!ctResult.success) return ctResult;
+
+    try {
+      final cmResult = await syncCardmarketGuides(
+        download: true,
+        onProgress: onProgress,
+        onlyCardId: cardId,
+      );
+      if (!cmResult.success) {
+        return SyncOutcome.ok(
+          '${ctResult.message}; Cardmarket skipped: ${cmResult.message}',
+        );
+      }
+      return SyncOutcome.ok('${ctResult.message}; ${cmResult.message}');
+    } catch (e) {
+      return SyncOutcome.ok('${ctResult.message}; Cardmarket skipped: $e');
     }
   }
 

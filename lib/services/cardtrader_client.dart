@@ -166,23 +166,41 @@ class CardTraderClient {
   }
 
   /// Marketplace listings for a blueprint. Separates Zero vs direct mins.
-  Future<CtMarketplaceSummary> marketplaceForBlueprint(int blueprintId) async {
+  ///
+  /// [foil] and [language] are sent to CardTrader (`foil`, `language` query
+  /// params). [minCondition] is applied client-side (listings at least that good).
+  Future<CtMarketplaceSummary> marketplaceForBlueprint(
+    int blueprintId, {
+    bool? foil,
+    String? language,
+    CardCondition? minCondition,
+  }) async {
     await _auth();
+    final query = <String, dynamic>{'blueprint_id': blueprintId};
+    if (foil != null) query['foil'] = foil;
+    if (language != null && language.isNotEmpty) query['language'] = language;
+
     final res = await _dio.get<Map<String, dynamic>>(
       '/marketplace/products',
-      queryParameters: {'blueprint_id': blueprintId},
+      queryParameters: query,
     );
 
     final data = res.data ?? {};
     final key = blueprintId.toString();
     final rawList = data[key];
-    final listings = <CtListing>[];
+    var listings = <CtListing>[];
     if (rawList is List) {
       for (final item in rawList) {
         if (item is Map<String, dynamic>) {
           listings.add(CtListing.fromJson(item));
         }
       }
+    }
+
+    if (minCondition != null) {
+      listings = listings
+          .where((l) => CardCondition.meetsMinimum(l.condition, minCondition))
+          .toList();
     }
 
     listings.sort((a, b) {
@@ -213,6 +231,70 @@ class CardTraderClient {
       listingCount: listings.length,
       zeroListingCount: zeroCount,
     );
+  }
+}
+
+/// MTG card condition ordered from best (Near Mint) to worst (Poor).
+enum CardCondition {
+  nearMint('Near Mint'),
+  slightlyPlayed('Slightly Played'),
+  moderatelyPlayed('Moderately Played'),
+  played('Played'),
+  heavilyPlayed('Heavily Played'),
+  poor('Poor');
+
+  const CardCondition(this.label);
+  final String label;
+
+  /// Higher = better condition.
+  int get rank => CardCondition.values.length - index;
+
+  static CardCondition? tryParse(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    final lower = raw.toLowerCase();
+    for (final c in CardCondition.values) {
+      if (c.label.toLowerCase() == lower) return c;
+    }
+    return null;
+  }
+
+  /// True when [listingCondition] is at least as good as [minimum].
+  static bool meetsMinimum(String? listingCondition, CardCondition minimum) {
+    final parsed = tryParse(listingCondition);
+    if (parsed == null) return false;
+    return parsed.rank >= minimum.rank;
+  }
+}
+
+/// Common MTG language codes used by CardTrader (`mtg_language` / `language`).
+class CardLanguages {
+  CardLanguages._();
+
+  static const any = '';
+  static const options = <(String code, String label)>[
+    ('en', 'English'),
+    ('de', 'German'),
+    ('fr', 'French'),
+    ('it', 'Italian'),
+    ('es', 'Spanish'),
+    ('pt', 'Portuguese'),
+    ('jp', 'Japanese'),
+    ('kr', 'Korean'),
+    ('ru', 'Russian'),
+    ('zh-CN', 'Chinese (Simplified)'),
+    ('zh-TW', 'Chinese (Traditional)'),
+    ('nl', 'Dutch'),
+    ('cz', 'Czech'),
+    ('hu', 'Hungarian'),
+    ('pl', 'Polish'),
+  ];
+
+  static String labelFor(String? code) {
+    if (code == null || code.isEmpty) return 'Any';
+    for (final o in options) {
+      if (o.$1 == code) return o.$2;
+    }
+    return code;
   }
 }
 
@@ -326,6 +408,7 @@ class CtListing {
     this.sellerName,
     this.condition,
     this.foil,
+    this.language,
   });
 
   factory CtListing.fromJson(Map<String, dynamic> json) {
@@ -344,9 +427,11 @@ class CtListing {
     final props = json['properties_hash'] ?? json['properties'];
     String? condition;
     bool? foil;
+    String? language;
     if (props is Map<String, dynamic>) {
       condition = props['condition'] as String?;
       foil = props['mtg_foil'] as bool? ?? props['foil'] as bool?;
+      language = props['mtg_language'] as String? ?? props['language'] as String?;
     }
     return CtListing(
       id: json['id'] as int? ?? 0,
@@ -356,6 +441,7 @@ class CtListing {
       sellerName: seller,
       condition: condition,
       foil: foil,
+      language: language,
     );
   }
 
@@ -366,6 +452,7 @@ class CtListing {
   final String? sellerName;
   final String? condition;
   final bool? foil;
+  final String? language;
 }
 
 class CtMarketplaceSummary {

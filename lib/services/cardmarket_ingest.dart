@@ -154,6 +154,15 @@ class CardmarketIngest {
         trend: _asDouble(item['trend']),
         avg7: _asDouble(item['avg7']),
         avg30: _asDouble(item['avg30']),
+        avgFoil: _asDouble(item['avg-foil'] ?? item['avgFoil'] ?? item['foilAvg']),
+        lowFoil: _asDouble(item['low-foil'] ?? item['lowFoil'] ?? item['foilLow']),
+        trendFoil:
+            _asDouble(item['trend-foil'] ?? item['trendFoil'] ?? item['foilTrend']),
+        avg7Foil:
+            _asDouble(item['avg7-foil'] ?? item['avg7Foil'] ?? item['foilAvg7']),
+        avg30Foil: _asDouble(
+          item['avg30-foil'] ?? item['avg30Foil'] ?? item['foilAvg30'],
+        ),
       );
     }
     return out;
@@ -192,6 +201,14 @@ class CardmarketIngest {
     final trendIdx = _col(header, ['Trend', 'trend']);
     final avg7Idx = _col(header, ['Avg7', 'avg7']);
     final avg30Idx = _col(header, ['Avg30', 'avg30']);
+    final avgFoilIdx = _col(header, ['Foil Sell', 'avg-foil', 'FoilAvg', 'avgFoil']);
+    final lowFoilIdx = _col(header, ['Foil Low', 'low-foil', 'FoilLow', 'lowFoil']);
+    final trendFoilIdx =
+        _col(header, ['Foil Trend', 'trend-foil', 'FoilTrend', 'trendFoil']);
+    final avg7FoilIdx =
+        _col(header, ['Foil AVG7', 'avg7-foil', 'FoilAvg7', 'avg7Foil']);
+    final avg30FoilIdx =
+        _col(header, ['Foil AVG30', 'avg30-foil', 'FoilAvg30', 'avg30Foil']);
     final out = <int, CmPriceGuide>{};
     for (final row in rows.skip(1)) {
       if (row.length <= idIdx) continue;
@@ -204,6 +221,11 @@ class CardmarketIngest {
         trend: _cellDouble(row, trendIdx),
         avg7: _cellDouble(row, avg7Idx),
         avg30: _cellDouble(row, avg30Idx),
+        avgFoil: _cellDouble(row, avgFoilIdx),
+        lowFoil: _cellDouble(row, lowFoilIdx),
+        trendFoil: _cellDouble(row, trendFoilIdx),
+        avg7Foil: _cellDouble(row, avg7FoilIdx),
+        avg30Foil: _cellDouble(row, avg30FoilIdx),
       );
     }
     return out;
@@ -250,6 +272,11 @@ class CmPriceGuide {
     this.trend,
     this.avg7,
     this.avg30,
+    this.avgFoil,
+    this.lowFoil,
+    this.trendFoil,
+    this.avg7Foil,
+    this.avg30Foil,
   });
   final int idProduct;
   final double? avg;
@@ -257,12 +284,45 @@ class CmPriceGuide {
   final double? trend;
   final double? avg7;
   final double? avg30;
+  final double? avgFoil;
+  final double? lowFoil;
+  final double? trendFoil;
+  final double? avg7Foil;
+  final double? avg30Foil;
 
   int? get trendCents => _toCents(trend);
   int? get lowCents => _toCents(low);
   int? get avgCents => _toCents(avg);
   int? get avg7Cents => _toCents(avg7);
   int? get avg30Cents => _toCents(avg30);
+
+  int? get trendFoilCents => _toCents(trendFoil);
+  int? get lowFoilCents => _toCents(lowFoil);
+  int? get avgFoilCents => _toCents(avgFoil);
+  int? get avg7FoilCents => _toCents(avg7Foil);
+  int? get avg30FoilCents => _toCents(avg30Foil);
+
+  /// Pick foil or non-foil guide fields. When [foil] is null, use non-foil.
+  ({int? trend, int? low, int? avg, int? avg7, int? avg30}) centsFor({
+    bool? foil,
+  }) {
+    if (foil == true) {
+      return (
+        trend: trendFoilCents ?? trendCents,
+        low: lowFoilCents ?? lowCents,
+        avg: avgFoilCents ?? avgCents,
+        avg7: avg7FoilCents ?? avg7Cents,
+        avg30: avg30FoilCents ?? avg30Cents,
+      );
+    }
+    return (
+      trend: trendCents,
+      low: lowCents,
+      avg: avgCents,
+      avg7: avg7Cents,
+      avg30: avg30Cents,
+    );
+  }
 
   static int? _toCents(double? euros) {
     if (euros == null) return null;

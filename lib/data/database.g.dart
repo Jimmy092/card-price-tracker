@@ -382,6 +382,17 @@ class $CardsTable extends Cards with TableInfo<$CardsTable, Card> {
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _imageUrlMeta = const VerificationMeta(
+    'imageUrl',
+  );
+  @override
+  late final GeneratedColumn<String> imageUrl = GeneratedColumn<String>(
+    'image_url',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _cardmarketProductIdMeta =
       const VerificationMeta('cardmarketProductId');
   @override
@@ -430,6 +441,7 @@ class $CardsTable extends Cards with TableInfo<$CardsTable, Card> {
     gameId,
     name,
     expansion,
+    imageUrl,
     cardmarketProductId,
     cardTraderBlueprintId,
     cardTraderExpansionId,
@@ -470,6 +482,12 @@ class $CardsTable extends Cards with TableInfo<$CardsTable, Card> {
       context.handle(
         _expansionMeta,
         expansion.isAcceptableOrUnknown(data['expansion']!, _expansionMeta),
+      );
+    }
+    if (data.containsKey('image_url')) {
+      context.handle(
+        _imageUrlMeta,
+        imageUrl.isAcceptableOrUnknown(data['image_url']!, _imageUrlMeta),
       );
     }
     if (data.containsKey('cardmarket_product_id')) {
@@ -530,6 +548,10 @@ class $CardsTable extends Cards with TableInfo<$CardsTable, Card> {
         DriftSqlType.string,
         data['${effectivePrefix}expansion'],
       )!,
+      imageUrl: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}image_url'],
+      ),
       cardmarketProductId: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}cardmarket_product_id'],
@@ -560,6 +582,7 @@ class Card extends DataClass implements Insertable<Card> {
   final String gameId;
   final String name;
   final String expansion;
+  final String? imageUrl;
   final int? cardmarketProductId;
   final int? cardTraderBlueprintId;
   final int? cardTraderExpansionId;
@@ -569,6 +592,7 @@ class Card extends DataClass implements Insertable<Card> {
     required this.gameId,
     required this.name,
     required this.expansion,
+    this.imageUrl,
     this.cardmarketProductId,
     this.cardTraderBlueprintId,
     this.cardTraderExpansionId,
@@ -581,6 +605,9 @@ class Card extends DataClass implements Insertable<Card> {
     map['game_id'] = Variable<String>(gameId);
     map['name'] = Variable<String>(name);
     map['expansion'] = Variable<String>(expansion);
+    if (!nullToAbsent || imageUrl != null) {
+      map['image_url'] = Variable<String>(imageUrl);
+    }
     if (!nullToAbsent || cardmarketProductId != null) {
       map['cardmarket_product_id'] = Variable<int>(cardmarketProductId);
     }
@@ -600,6 +627,9 @@ class Card extends DataClass implements Insertable<Card> {
       gameId: Value(gameId),
       name: Value(name),
       expansion: Value(expansion),
+      imageUrl: imageUrl == null && nullToAbsent
+          ? const Value.absent()
+          : Value(imageUrl),
       cardmarketProductId: cardmarketProductId == null && nullToAbsent
           ? const Value.absent()
           : Value(cardmarketProductId),
@@ -623,6 +653,7 @@ class Card extends DataClass implements Insertable<Card> {
       gameId: serializer.fromJson<String>(json['gameId']),
       name: serializer.fromJson<String>(json['name']),
       expansion: serializer.fromJson<String>(json['expansion']),
+      imageUrl: serializer.fromJson<String?>(json['imageUrl']),
       cardmarketProductId: serializer.fromJson<int?>(
         json['cardmarketProductId'],
       ),
@@ -643,6 +674,7 @@ class Card extends DataClass implements Insertable<Card> {
       'gameId': serializer.toJson<String>(gameId),
       'name': serializer.toJson<String>(name),
       'expansion': serializer.toJson<String>(expansion),
+      'imageUrl': serializer.toJson<String?>(imageUrl),
       'cardmarketProductId': serializer.toJson<int?>(cardmarketProductId),
       'cardTraderBlueprintId': serializer.toJson<int?>(cardTraderBlueprintId),
       'cardTraderExpansionId': serializer.toJson<int?>(cardTraderExpansionId),
@@ -655,6 +687,7 @@ class Card extends DataClass implements Insertable<Card> {
     String? gameId,
     String? name,
     String? expansion,
+    Value<String?> imageUrl = const Value.absent(),
     Value<int?> cardmarketProductId = const Value.absent(),
     Value<int?> cardTraderBlueprintId = const Value.absent(),
     Value<int?> cardTraderExpansionId = const Value.absent(),
@@ -664,6 +697,7 @@ class Card extends DataClass implements Insertable<Card> {
     gameId: gameId ?? this.gameId,
     name: name ?? this.name,
     expansion: expansion ?? this.expansion,
+    imageUrl: imageUrl.present ? imageUrl.value : this.imageUrl,
     cardmarketProductId: cardmarketProductId.present
         ? cardmarketProductId.value
         : this.cardmarketProductId,
@@ -681,6 +715,7 @@ class Card extends DataClass implements Insertable<Card> {
       gameId: data.gameId.present ? data.gameId.value : this.gameId,
       name: data.name.present ? data.name.value : this.name,
       expansion: data.expansion.present ? data.expansion.value : this.expansion,
+      imageUrl: data.imageUrl.present ? data.imageUrl.value : this.imageUrl,
       cardmarketProductId: data.cardmarketProductId.present
           ? data.cardmarketProductId.value
           : this.cardmarketProductId,
@@ -701,6 +736,7 @@ class Card extends DataClass implements Insertable<Card> {
           ..write('gameId: $gameId, ')
           ..write('name: $name, ')
           ..write('expansion: $expansion, ')
+          ..write('imageUrl: $imageUrl, ')
           ..write('cardmarketProductId: $cardmarketProductId, ')
           ..write('cardTraderBlueprintId: $cardTraderBlueprintId, ')
           ..write('cardTraderExpansionId: $cardTraderExpansionId, ')
@@ -715,6 +751,7 @@ class Card extends DataClass implements Insertable<Card> {
     gameId,
     name,
     expansion,
+    imageUrl,
     cardmarketProductId,
     cardTraderBlueprintId,
     cardTraderExpansionId,
@@ -728,6 +765,7 @@ class Card extends DataClass implements Insertable<Card> {
           other.gameId == this.gameId &&
           other.name == this.name &&
           other.expansion == this.expansion &&
+          other.imageUrl == this.imageUrl &&
           other.cardmarketProductId == this.cardmarketProductId &&
           other.cardTraderBlueprintId == this.cardTraderBlueprintId &&
           other.cardTraderExpansionId == this.cardTraderExpansionId &&
@@ -739,6 +777,7 @@ class CardsCompanion extends UpdateCompanion<Card> {
   final Value<String> gameId;
   final Value<String> name;
   final Value<String> expansion;
+  final Value<String?> imageUrl;
   final Value<int?> cardmarketProductId;
   final Value<int?> cardTraderBlueprintId;
   final Value<int?> cardTraderExpansionId;
@@ -748,6 +787,7 @@ class CardsCompanion extends UpdateCompanion<Card> {
     this.gameId = const Value.absent(),
     this.name = const Value.absent(),
     this.expansion = const Value.absent(),
+    this.imageUrl = const Value.absent(),
     this.cardmarketProductId = const Value.absent(),
     this.cardTraderBlueprintId = const Value.absent(),
     this.cardTraderExpansionId = const Value.absent(),
@@ -758,6 +798,7 @@ class CardsCompanion extends UpdateCompanion<Card> {
     required String gameId,
     required String name,
     this.expansion = const Value.absent(),
+    this.imageUrl = const Value.absent(),
     this.cardmarketProductId = const Value.absent(),
     this.cardTraderBlueprintId = const Value.absent(),
     this.cardTraderExpansionId = const Value.absent(),
@@ -769,6 +810,7 @@ class CardsCompanion extends UpdateCompanion<Card> {
     Expression<String>? gameId,
     Expression<String>? name,
     Expression<String>? expansion,
+    Expression<String>? imageUrl,
     Expression<int>? cardmarketProductId,
     Expression<int>? cardTraderBlueprintId,
     Expression<int>? cardTraderExpansionId,
@@ -779,6 +821,7 @@ class CardsCompanion extends UpdateCompanion<Card> {
       if (gameId != null) 'game_id': gameId,
       if (name != null) 'name': name,
       if (expansion != null) 'expansion': expansion,
+      if (imageUrl != null) 'image_url': imageUrl,
       if (cardmarketProductId != null)
         'cardmarket_product_id': cardmarketProductId,
       if (cardTraderBlueprintId != null)
@@ -794,6 +837,7 @@ class CardsCompanion extends UpdateCompanion<Card> {
     Value<String>? gameId,
     Value<String>? name,
     Value<String>? expansion,
+    Value<String?>? imageUrl,
     Value<int?>? cardmarketProductId,
     Value<int?>? cardTraderBlueprintId,
     Value<int?>? cardTraderExpansionId,
@@ -804,6 +848,7 @@ class CardsCompanion extends UpdateCompanion<Card> {
       gameId: gameId ?? this.gameId,
       name: name ?? this.name,
       expansion: expansion ?? this.expansion,
+      imageUrl: imageUrl ?? this.imageUrl,
       cardmarketProductId: cardmarketProductId ?? this.cardmarketProductId,
       cardTraderBlueprintId:
           cardTraderBlueprintId ?? this.cardTraderBlueprintId,
@@ -827,6 +872,9 @@ class CardsCompanion extends UpdateCompanion<Card> {
     }
     if (expansion.present) {
       map['expansion'] = Variable<String>(expansion.value);
+    }
+    if (imageUrl.present) {
+      map['image_url'] = Variable<String>(imageUrl.value);
     }
     if (cardmarketProductId.present) {
       map['cardmarket_product_id'] = Variable<int>(cardmarketProductId.value);
@@ -854,6 +902,7 @@ class CardsCompanion extends UpdateCompanion<Card> {
           ..write('gameId: $gameId, ')
           ..write('name: $name, ')
           ..write('expansion: $expansion, ')
+          ..write('imageUrl: $imageUrl, ')
           ..write('cardmarketProductId: $cardmarketProductId, ')
           ..write('cardTraderBlueprintId: $cardTraderBlueprintId, ')
           ..write('cardTraderExpansionId: $cardTraderExpansionId, ')
@@ -916,6 +965,40 @@ class $WatchlistItemsTable extends WatchlistItems
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _foilMeta = const VerificationMeta('foil');
+  @override
+  late final GeneratedColumn<bool> foil = GeneratedColumn<bool>(
+    'foil',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("foil" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _languageMeta = const VerificationMeta(
+    'language',
+  );
+  @override
+  late final GeneratedColumn<String> language = GeneratedColumn<String>(
+    'language',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _minConditionMeta = const VerificationMeta(
+    'minCondition',
+  );
+  @override
+  late final GeneratedColumn<String> minCondition = GeneratedColumn<String>(
+    'min_condition',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _targetBuyCentsMeta = const VerificationMeta(
     'targetBuyCents',
   );
@@ -956,6 +1039,9 @@ class $WatchlistItemsTable extends WatchlistItems
     cardId,
     quantity,
     notes,
+    foil,
+    language,
+    minCondition,
     targetBuyCents,
     targetSellCents,
     addedAt,
@@ -993,6 +1079,27 @@ class $WatchlistItemsTable extends WatchlistItems
       context.handle(
         _notesMeta,
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('foil')) {
+      context.handle(
+        _foilMeta,
+        foil.isAcceptableOrUnknown(data['foil']!, _foilMeta),
+      );
+    }
+    if (data.containsKey('language')) {
+      context.handle(
+        _languageMeta,
+        language.isAcceptableOrUnknown(data['language']!, _languageMeta),
+      );
+    }
+    if (data.containsKey('min_condition')) {
+      context.handle(
+        _minConditionMeta,
+        minCondition.isAcceptableOrUnknown(
+          data['min_condition']!,
+          _minConditionMeta,
+        ),
       );
     }
     if (data.containsKey('target_buy_cents')) {
@@ -1044,6 +1151,18 @@ class $WatchlistItemsTable extends WatchlistItems
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       )!,
+      foil: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}foil'],
+      ),
+      language: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language'],
+      ),
+      minCondition: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}min_condition'],
+      ),
       targetBuyCents: attachedDatabase.typeMapping.read(
         DriftSqlType.int,
         data['${effectivePrefix}target_buy_cents'],
@@ -1070,6 +1189,15 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
   final int cardId;
   final int quantity;
   final String notes;
+
+  /// null = any; true = foil only; false = non-foil only (CardTrader filter).
+  final bool? foil;
+
+  /// CardTrader language code (e.g. `en`), null = any.
+  final String? language;
+
+  /// Minimum condition label (e.g. `Near Mint`), null = any.
+  final String? minCondition;
   final int? targetBuyCents;
   final int? targetSellCents;
   final DateTime addedAt;
@@ -1078,6 +1206,9 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
     required this.cardId,
     required this.quantity,
     required this.notes,
+    this.foil,
+    this.language,
+    this.minCondition,
     this.targetBuyCents,
     this.targetSellCents,
     required this.addedAt,
@@ -1089,6 +1220,15 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
     map['card_id'] = Variable<int>(cardId);
     map['quantity'] = Variable<int>(quantity);
     map['notes'] = Variable<String>(notes);
+    if (!nullToAbsent || foil != null) {
+      map['foil'] = Variable<bool>(foil);
+    }
+    if (!nullToAbsent || language != null) {
+      map['language'] = Variable<String>(language);
+    }
+    if (!nullToAbsent || minCondition != null) {
+      map['min_condition'] = Variable<String>(minCondition);
+    }
     if (!nullToAbsent || targetBuyCents != null) {
       map['target_buy_cents'] = Variable<int>(targetBuyCents);
     }
@@ -1105,6 +1245,13 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
       cardId: Value(cardId),
       quantity: Value(quantity),
       notes: Value(notes),
+      foil: foil == null && nullToAbsent ? const Value.absent() : Value(foil),
+      language: language == null && nullToAbsent
+          ? const Value.absent()
+          : Value(language),
+      minCondition: minCondition == null && nullToAbsent
+          ? const Value.absent()
+          : Value(minCondition),
       targetBuyCents: targetBuyCents == null && nullToAbsent
           ? const Value.absent()
           : Value(targetBuyCents),
@@ -1125,6 +1272,9 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
       cardId: serializer.fromJson<int>(json['cardId']),
       quantity: serializer.fromJson<int>(json['quantity']),
       notes: serializer.fromJson<String>(json['notes']),
+      foil: serializer.fromJson<bool?>(json['foil']),
+      language: serializer.fromJson<String?>(json['language']),
+      minCondition: serializer.fromJson<String?>(json['minCondition']),
       targetBuyCents: serializer.fromJson<int?>(json['targetBuyCents']),
       targetSellCents: serializer.fromJson<int?>(json['targetSellCents']),
       addedAt: serializer.fromJson<DateTime>(json['addedAt']),
@@ -1138,6 +1288,9 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
       'cardId': serializer.toJson<int>(cardId),
       'quantity': serializer.toJson<int>(quantity),
       'notes': serializer.toJson<String>(notes),
+      'foil': serializer.toJson<bool?>(foil),
+      'language': serializer.toJson<String?>(language),
+      'minCondition': serializer.toJson<String?>(minCondition),
       'targetBuyCents': serializer.toJson<int?>(targetBuyCents),
       'targetSellCents': serializer.toJson<int?>(targetSellCents),
       'addedAt': serializer.toJson<DateTime>(addedAt),
@@ -1149,6 +1302,9 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
     int? cardId,
     int? quantity,
     String? notes,
+    Value<bool?> foil = const Value.absent(),
+    Value<String?> language = const Value.absent(),
+    Value<String?> minCondition = const Value.absent(),
     Value<int?> targetBuyCents = const Value.absent(),
     Value<int?> targetSellCents = const Value.absent(),
     DateTime? addedAt,
@@ -1157,6 +1313,9 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
     cardId: cardId ?? this.cardId,
     quantity: quantity ?? this.quantity,
     notes: notes ?? this.notes,
+    foil: foil.present ? foil.value : this.foil,
+    language: language.present ? language.value : this.language,
+    minCondition: minCondition.present ? minCondition.value : this.minCondition,
     targetBuyCents: targetBuyCents.present
         ? targetBuyCents.value
         : this.targetBuyCents,
@@ -1171,6 +1330,11 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
       cardId: data.cardId.present ? data.cardId.value : this.cardId,
       quantity: data.quantity.present ? data.quantity.value : this.quantity,
       notes: data.notes.present ? data.notes.value : this.notes,
+      foil: data.foil.present ? data.foil.value : this.foil,
+      language: data.language.present ? data.language.value : this.language,
+      minCondition: data.minCondition.present
+          ? data.minCondition.value
+          : this.minCondition,
       targetBuyCents: data.targetBuyCents.present
           ? data.targetBuyCents.value
           : this.targetBuyCents,
@@ -1188,6 +1352,9 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
           ..write('cardId: $cardId, ')
           ..write('quantity: $quantity, ')
           ..write('notes: $notes, ')
+          ..write('foil: $foil, ')
+          ..write('language: $language, ')
+          ..write('minCondition: $minCondition, ')
           ..write('targetBuyCents: $targetBuyCents, ')
           ..write('targetSellCents: $targetSellCents, ')
           ..write('addedAt: $addedAt')
@@ -1201,6 +1368,9 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
     cardId,
     quantity,
     notes,
+    foil,
+    language,
+    minCondition,
     targetBuyCents,
     targetSellCents,
     addedAt,
@@ -1213,6 +1383,9 @@ class WatchlistItem extends DataClass implements Insertable<WatchlistItem> {
           other.cardId == this.cardId &&
           other.quantity == this.quantity &&
           other.notes == this.notes &&
+          other.foil == this.foil &&
+          other.language == this.language &&
+          other.minCondition == this.minCondition &&
           other.targetBuyCents == this.targetBuyCents &&
           other.targetSellCents == this.targetSellCents &&
           other.addedAt == this.addedAt);
@@ -1223,6 +1396,9 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
   final Value<int> cardId;
   final Value<int> quantity;
   final Value<String> notes;
+  final Value<bool?> foil;
+  final Value<String?> language;
+  final Value<String?> minCondition;
   final Value<int?> targetBuyCents;
   final Value<int?> targetSellCents;
   final Value<DateTime> addedAt;
@@ -1231,6 +1407,9 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
     this.cardId = const Value.absent(),
     this.quantity = const Value.absent(),
     this.notes = const Value.absent(),
+    this.foil = const Value.absent(),
+    this.language = const Value.absent(),
+    this.minCondition = const Value.absent(),
     this.targetBuyCents = const Value.absent(),
     this.targetSellCents = const Value.absent(),
     this.addedAt = const Value.absent(),
@@ -1240,6 +1419,9 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
     required int cardId,
     this.quantity = const Value.absent(),
     this.notes = const Value.absent(),
+    this.foil = const Value.absent(),
+    this.language = const Value.absent(),
+    this.minCondition = const Value.absent(),
     this.targetBuyCents = const Value.absent(),
     this.targetSellCents = const Value.absent(),
     this.addedAt = const Value.absent(),
@@ -1249,6 +1431,9 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
     Expression<int>? cardId,
     Expression<int>? quantity,
     Expression<String>? notes,
+    Expression<bool>? foil,
+    Expression<String>? language,
+    Expression<String>? minCondition,
     Expression<int>? targetBuyCents,
     Expression<int>? targetSellCents,
     Expression<DateTime>? addedAt,
@@ -1258,6 +1443,9 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
       if (cardId != null) 'card_id': cardId,
       if (quantity != null) 'quantity': quantity,
       if (notes != null) 'notes': notes,
+      if (foil != null) 'foil': foil,
+      if (language != null) 'language': language,
+      if (minCondition != null) 'min_condition': minCondition,
       if (targetBuyCents != null) 'target_buy_cents': targetBuyCents,
       if (targetSellCents != null) 'target_sell_cents': targetSellCents,
       if (addedAt != null) 'added_at': addedAt,
@@ -1269,6 +1457,9 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
     Value<int>? cardId,
     Value<int>? quantity,
     Value<String>? notes,
+    Value<bool?>? foil,
+    Value<String?>? language,
+    Value<String?>? minCondition,
     Value<int?>? targetBuyCents,
     Value<int?>? targetSellCents,
     Value<DateTime>? addedAt,
@@ -1278,6 +1469,9 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
       cardId: cardId ?? this.cardId,
       quantity: quantity ?? this.quantity,
       notes: notes ?? this.notes,
+      foil: foil ?? this.foil,
+      language: language ?? this.language,
+      minCondition: minCondition ?? this.minCondition,
       targetBuyCents: targetBuyCents ?? this.targetBuyCents,
       targetSellCents: targetSellCents ?? this.targetSellCents,
       addedAt: addedAt ?? this.addedAt,
@@ -1299,6 +1493,15 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (foil.present) {
+      map['foil'] = Variable<bool>(foil.value);
+    }
+    if (language.present) {
+      map['language'] = Variable<String>(language.value);
+    }
+    if (minCondition.present) {
+      map['min_condition'] = Variable<String>(minCondition.value);
+    }
     if (targetBuyCents.present) {
       map['target_buy_cents'] = Variable<int>(targetBuyCents.value);
     }
@@ -1318,6 +1521,9 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
           ..write('cardId: $cardId, ')
           ..write('quantity: $quantity, ')
           ..write('notes: $notes, ')
+          ..write('foil: $foil, ')
+          ..write('language: $language, ')
+          ..write('minCondition: $minCondition, ')
           ..write('targetBuyCents: $targetBuyCents, ')
           ..write('targetSellCents: $targetSellCents, ')
           ..write('addedAt: $addedAt')
@@ -2882,6 +3088,7 @@ typedef $$CardsTableCreateCompanionBuilder = CardsCompanion Function({
   required String gameId,
   required String name,
   Value<String> expansion,
+  Value<String?> imageUrl,
   Value<int?> cardmarketProductId,
   Value<int?> cardTraderBlueprintId,
   Value<int?> cardTraderExpansionId,
@@ -2892,6 +3099,7 @@ typedef $$CardsTableUpdateCompanionBuilder = CardsCompanion Function({
   Value<String> gameId,
   Value<String> name,
   Value<String> expansion,
+  Value<String?> imageUrl,
   Value<int?> cardmarketProductId,
   Value<int?> cardTraderBlueprintId,
   Value<int?> cardTraderExpansionId,
@@ -2976,6 +3184,11 @@ class $$CardsTableFilterComposer extends Composer<_$AppDatabase, $CardsTable> {
 
   ColumnFilters<String> get expansion => $composableBuilder(
     column: $table.expansion,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get imageUrl => $composableBuilder(
+    column: $table.imageUrl,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3097,6 +3310,11 @@ class $$CardsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get imageUrl => $composableBuilder(
+    column: $table.imageUrl,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get cardmarketProductId => $composableBuilder(
     column: $table.cardmarketProductId,
     builder: (column) => ColumnOrderings(column),
@@ -3158,6 +3376,9 @@ class $$CardsTableAnnotationComposer
 
   GeneratedColumn<String> get expansion =>
       $composableBuilder(column: $table.expansion, builder: (column) => column);
+
+  GeneratedColumn<String> get imageUrl =>
+      $composableBuilder(column: $table.imageUrl, builder: (column) => column);
 
   GeneratedColumn<int> get cardmarketProductId => $composableBuilder(
     column: $table.cardmarketProductId,
@@ -3287,6 +3508,7 @@ class $$CardsTableTableManager
                 Value<String> gameId = const Value.absent(),
                 Value<String> name = const Value.absent(),
                 Value<String> expansion = const Value.absent(),
+                Value<String?> imageUrl = const Value.absent(),
                 Value<int?> cardmarketProductId = const Value.absent(),
                 Value<int?> cardTraderBlueprintId = const Value.absent(),
                 Value<int?> cardTraderExpansionId = const Value.absent(),
@@ -3296,6 +3518,7 @@ class $$CardsTableTableManager
                 gameId: gameId,
                 name: name,
                 expansion: expansion,
+                imageUrl: imageUrl,
                 cardmarketProductId: cardmarketProductId,
                 cardTraderBlueprintId: cardTraderBlueprintId,
                 cardTraderExpansionId: cardTraderExpansionId,
@@ -3307,6 +3530,7 @@ class $$CardsTableTableManager
                 required String gameId,
                 required String name,
                 Value<String> expansion = const Value.absent(),
+                Value<String?> imageUrl = const Value.absent(),
                 Value<int?> cardmarketProductId = const Value.absent(),
                 Value<int?> cardTraderBlueprintId = const Value.absent(),
                 Value<int?> cardTraderExpansionId = const Value.absent(),
@@ -3316,6 +3540,7 @@ class $$CardsTableTableManager
                 gameId: gameId,
                 name: name,
                 expansion: expansion,
+                imageUrl: imageUrl,
                 cardmarketProductId: cardmarketProductId,
                 cardTraderBlueprintId: cardTraderBlueprintId,
                 cardTraderExpansionId: cardTraderExpansionId,
@@ -3447,6 +3672,9 @@ typedef $$WatchlistItemsTableCreateCompanionBuilder =
       required int cardId,
       Value<int> quantity,
       Value<String> notes,
+      Value<bool?> foil,
+      Value<String?> language,
+      Value<String?> minCondition,
       Value<int?> targetBuyCents,
       Value<int?> targetSellCents,
       Value<DateTime> addedAt,
@@ -3457,6 +3685,9 @@ typedef $$WatchlistItemsTableUpdateCompanionBuilder =
       Value<int> cardId,
       Value<int> quantity,
       Value<String> notes,
+      Value<bool?> foil,
+      Value<String?> language,
+      Value<String?> minCondition,
       Value<int?> targetBuyCents,
       Value<int?> targetSellCents,
       Value<DateTime> addedAt,
@@ -3509,6 +3740,21 @@ class $$WatchlistItemsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get foil => $composableBuilder(
+    column: $table.foil,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get minCondition => $composableBuilder(
+    column: $table.minCondition,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -3575,6 +3821,21 @@ class $$WatchlistItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<bool> get foil => $composableBuilder(
+    column: $table.foil,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get minCondition => $composableBuilder(
+    column: $table.minCondition,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<int> get targetBuyCents => $composableBuilder(
     column: $table.targetBuyCents,
     builder: (column) => ColumnOrderings(column),
@@ -3631,6 +3892,17 @@ class $$WatchlistItemsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<bool> get foil =>
+      $composableBuilder(column: $table.foil, builder: (column) => column);
+
+  GeneratedColumn<String> get language =>
+      $composableBuilder(column: $table.language, builder: (column) => column);
+
+  GeneratedColumn<String> get minCondition => $composableBuilder(
+    column: $table.minCondition,
+    builder: (column) => column,
+  );
 
   GeneratedColumn<int> get targetBuyCents => $composableBuilder(
     column: $table.targetBuyCents,
@@ -3703,6 +3975,9 @@ class $$WatchlistItemsTableTableManager
                 Value<int> cardId = const Value.absent(),
                 Value<int> quantity = const Value.absent(),
                 Value<String> notes = const Value.absent(),
+                Value<bool?> foil = const Value.absent(),
+                Value<String?> language = const Value.absent(),
+                Value<String?> minCondition = const Value.absent(),
                 Value<int?> targetBuyCents = const Value.absent(),
                 Value<int?> targetSellCents = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
@@ -3711,6 +3986,9 @@ class $$WatchlistItemsTableTableManager
                 cardId: cardId,
                 quantity: quantity,
                 notes: notes,
+                foil: foil,
+                language: language,
+                minCondition: minCondition,
                 targetBuyCents: targetBuyCents,
                 targetSellCents: targetSellCents,
                 addedAt: addedAt,
@@ -3721,6 +3999,9 @@ class $$WatchlistItemsTableTableManager
                 required int cardId,
                 Value<int> quantity = const Value.absent(),
                 Value<String> notes = const Value.absent(),
+                Value<bool?> foil = const Value.absent(),
+                Value<String?> language = const Value.absent(),
+                Value<String?> minCondition = const Value.absent(),
                 Value<int?> targetBuyCents = const Value.absent(),
                 Value<int?> targetSellCents = const Value.absent(),
                 Value<DateTime> addedAt = const Value.absent(),
@@ -3729,6 +4010,9 @@ class $$WatchlistItemsTableTableManager
                 cardId: cardId,
                 quantity: quantity,
                 notes: notes,
+                foil: foil,
+                language: language,
+                minCondition: minCondition,
                 targetBuyCents: targetBuyCents,
                 targetSellCents: targetSellCents,
                 addedAt: addedAt,

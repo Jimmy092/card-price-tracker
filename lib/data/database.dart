@@ -11,7 +11,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'card_price_tracker'));
 
   @override
-  int get schemaVersion => 1;
+  int get schemaVersion => 3;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -25,6 +25,16 @@ class AppDatabase extends _$AppDatabase {
               cardmarketGameId: const Value(1),
             ),
           );
+        },
+        onUpgrade: (m, from, to) async {
+          if (from < 2) {
+            await m.addColumn(cards, cards.imageUrl);
+          }
+          if (from < 3) {
+            await m.addColumn(watchlistItems, watchlistItems.foil);
+            await m.addColumn(watchlistItems, watchlistItems.language);
+            await m.addColumn(watchlistItems, watchlistItems.minCondition);
+          }
         },
       );
 
@@ -108,6 +118,10 @@ class AppDatabase extends _$AppDatabase {
     int? cardTraderBlueprintId,
     int? cardTraderExpansionId,
     int? cardmarketProductId,
+    String? imageUrl,
+    bool? foil,
+    String? language,
+    String? minCondition,
     int quantity = 1,
     String notes = '',
   }) async {
@@ -124,6 +138,9 @@ class AppDatabase extends _$AppDatabase {
         CardsCompanion(
           name: Value(name),
           expansion: Value(expansion),
+          imageUrl: imageUrl != null && imageUrl.isNotEmpty
+              ? Value(imageUrl)
+              : const Value.absent(),
           cardTraderBlueprintId: cardTraderBlueprintId != null
               ? Value(cardTraderBlueprintId)
               : const Value.absent(),
@@ -141,6 +158,7 @@ class AppDatabase extends _$AppDatabase {
           gameId: 'mtg',
           name: name,
           expansion: Value(expansion),
+          imageUrl: Value(imageUrl),
           cardTraderBlueprintId: Value(cardTraderBlueprintId),
           cardTraderExpansionId: Value(cardTraderExpansionId),
           cardmarketProductId: Value(cardmarketProductId),
@@ -158,10 +176,39 @@ class AppDatabase extends _$AppDatabase {
           cardId: cardId,
           quantity: Value(quantity),
           notes: Value(notes),
+          foil: Value(foil),
+          language: Value(language),
+          minCondition: Value(minCondition),
+        ),
+      );
+    } else {
+      // Update listing preferences when re-adding the same printing.
+      await (update(watchlistItems)..where((t) => t.id.equals(existingItem.id)))
+          .write(
+        WatchlistItemsCompanion(
+          foil: Value(foil),
+          language: Value(language),
+          minCondition: Value(minCondition),
         ),
       );
     }
     return cardId;
+  }
+
+  /// Watchlist cards joined with their listing filter preferences.
+  Future<List<WatchlistEntry>> allWatchlistEntries() async {
+    final q = select(watchlistItems).join([
+      innerJoin(cards, cards.id.equalsExp(watchlistItems.cardId)),
+    ]);
+    final rows = await q.get();
+    return rows
+        .map(
+          (r) => WatchlistEntry(
+            card: r.readTable(cards),
+            item: r.readTable(watchlistItems),
+          ),
+        )
+        .toList();
   }
 
   Future<Card?> getCard(int id) {
@@ -255,4 +302,10 @@ class WatchlistRow {
     if (cur == null || prev == null || prev == 0) return null;
     return ((cur - prev) / prev) * 100;
   }
+}
+
+class WatchlistEntry {
+  WatchlistEntry({required this.card, required this.item});
+  final Card card;
+  final WatchlistItem item;
 }

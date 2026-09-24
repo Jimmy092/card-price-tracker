@@ -16,6 +16,7 @@ class Cards extends Table {
   TextColumn get gameId => text().references(Games, #id)();
   TextColumn get name => text()();
   TextColumn get expansion => text().withDefault(const Constant(''))();
+  TextColumn get imageUrl => text().nullable()();
   IntColumn get cardmarketProductId => integer().nullable()();
   IntColumn get cardTraderBlueprintId => integer().nullable()();
   IntColumn get cardTraderExpansionId => integer().nullable()();
@@ -27,6 +28,12 @@ class WatchlistItems extends Table {
   IntColumn get cardId => integer().references(Cards, #id)();
   IntColumn get quantity => integer().withDefault(const Constant(1))();
   TextColumn get notes => text().withDefault(const Constant(''))();
+  /// null = any; true = foil only; false = non-foil only (CardTrader filter).
+  BoolColumn get foil => boolean().nullable()();
+  /// CardTrader language code (e.g. `en`), null = any.
+  TextColumn get language => text().nullable()();
+  /// Minimum condition label (e.g. `Near Mint`), null = any.
+  TextColumn get minCondition => text().nullable()();
   IntColumn get targetBuyCents => integer().nullable()();
   IntColumn get targetSellCents => integer().nullable()();
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();

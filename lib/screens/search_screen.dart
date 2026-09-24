@@ -6,6 +6,8 @@ import 'package:provider/provider.dart';
 import '../data/database.dart';
 import '../services/cardtrader_client.dart';
 import '../services/scryfall_client.dart';
+import '../services/sync_service.dart';
+import '../widgets/card_thumb.dart';
 import '../widgets/price_format.dart';
 
 /// One printing of a card (across sets), optionally linked to a CT blueprint.
@@ -47,11 +49,20 @@ class _SearchScreenState extends State<SearchScreen> {
   final Set<String> _expandedKeys = {};
   final Set<int> _loadingPrices = {};
 
+  /// null = any language; otherwise CardTrader language code (e.g. `en`).
+  String? _language;
+  /// null = any; true = foil only; false = non-foil only.
+  bool? _foil;
+  /// null = any condition; otherwise minimum accepted grade.
+  CardCondition? _minCondition;
+
   bool _loadingNames = false;
   bool _loadingPrintings = false;
   String? _error;
   Timer? _debounce;
   int _gen = 0;
+  /// Separate counter so filter changes don't cancel name/printing loads.
+  int _priceGen = 0;
 
   @override
   void initState() {
@@ -161,6 +172,8 @@ class _SearchScreenState extends State<SearchScreen> {
       _markets.clear();
       _expandedKeys.clear();
       _priceErrors.clear();
+      _loadingPrices.clear();
+      _priceGen++;
     });
 
     try {
@@ -204,7 +217,7 @@ class _SearchScreenState extends State<SearchScreen> {
           .where((r) => r.blueprintId != null)
           .map((r) => r.blueprintId!)
           .toList();
-      unawaited(_prefetchPrices(withBp, gen));
+      unawaited(_prefetchPrices(withBp));
     } catch (e) {
       if (!mounted || gen != _gen) return;
       setState(() {
@@ -214,22 +227,28 @@ class _SearchScreenState extends State<SearchScreen> {
     }
   }
 
-  Future<void> _prefetchPrices(List<int> blueprintIds, int gen) async {
+  Future<void> _prefetchPrices(List<int> blueprintIds) async {
+    final priceGen = ++_priceGen;
     final ct = context.read<CardTraderClient>();
     for (final id in blueprintIds) {
-      if (!mounted || gen != _gen) return;
+      if (!mounted || priceGen != _priceGen) return;
       if (_markets.containsKey(id) || _loadingPrices.contains(id)) continue;
       setState(() => _loadingPrices.add(id));
       try {
-        final market = await ct.marketplaceForBlueprint(id);
-        if (!mounted || gen != _gen) return;
+        final market = await ct.marketplaceForBlueprint(
+          id,
+          foil: _foil,
+          language: _language,
+          minCondition: _minCondition,
+        );
+        if (!mounted || priceGen != _priceGen) return;
         setState(() {
           _markets[id] = market;
           _priceErrors.remove(id);
           _loadingPrices.remove(id);
         });
       } catch (e) {
-        if (!mounted || gen != _gen) return;
+        if (!mounted || priceGen != _priceGen) return;
         setState(() {
           _priceErrors[id] = e.toString();
           _loadingPrices.remove(id);
@@ -244,23 +263,43 @@ class _SearchScreenState extends State<SearchScreen> {
         _loadingPrices.contains(blueprintId)) {
       return;
     }
+    final priceGen = _priceGen;
     setState(() => _loadingPrices.add(blueprintId));
     try {
-      final market = await context
-          .read<CardTraderClient>()
-          .marketplaceForBlueprint(blueprintId);
-      if (!mounted) return;
+      final market = await context.read<CardTraderClient>().marketplaceForBlueprint(
+            blueprintId,
+            foil: _foil,
+            language: _language,
+            minCondition: _minCondition,
+          );
+      if (!mounted || priceGen != _priceGen) return;
       setState(() {
         _markets[blueprintId] = market;
         _priceErrors.remove(blueprintId);
         _loadingPrices.remove(blueprintId);
       });
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || priceGen != _priceGen) return;
       setState(() {
         _priceErrors[blueprintId] = e.toString();
         _loadingPrices.remove(blueprintId);
       });
+    }
+  }
+
+  /// Clears cached prices and reloads for visible printings when filters change.
+  void _onFiltersChanged() {
+    setState(() {
+      _markets.clear();
+      _priceErrors.clear();
+      _loadingPrices.clear();
+    });
+    final withBp = _printings
+        .where((r) => r.blueprintId != null)
+        .map((r) => r.blueprintId!)
+        .toList();
+    if (withBp.isNotEmpty) {
+      unawaited(_prefetchPrices(withBp));
     }
   }
 
@@ -288,15 +327,43 @@ class _SearchScreenState extends State<SearchScreen> {
       );
       return;
     }
-    await context.read<AppDatabase>().upsertWatchlistCard(
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          [
+            'Adding ${bp.name}',
+            if (_foil == true) '(foil)',
+            if (_foil == false) '(non-foil)',
+            '… fetching prices',
+          ].join(' '),
+        ),
+      ),
+    );
+    final cardId = await context.read<AppDatabase>().upsertWatchlistCard(
           name: bp.name,
           expansion: bp.expansionName ?? row.printing.setName,
           cardTraderBlueprintId: bp.id,
           cardTraderExpansionId: bp.expansionId,
+          imageUrl: row.imageUrl ?? bp.absoluteImageUrl,
+          foil: _foil,
+          language: _language,
+          minCondition: _minCondition?.label,
         );
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Added ${bp.name} (${row.printing.setName})')),
+
+    // Pull CT + CM prices immediately so the watchlist isn't empty.
+    final outcome = await context.read<SyncService>().syncWatchlistCard(cardId);
+    if (!mounted) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          outcome.success
+              ? 'Added ${bp.name} (${row.printing.setName})'
+              : 'Added ${bp.name}, but prices failed: ${outcome.message}',
+        ),
+      ),
     );
   }
 
@@ -357,6 +424,26 @@ class _SearchScreenState extends State<SearchScreen> {
                     ? _nameSuggestions.first
                     : text;
                 await _selectName(pick);
+              },
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+            child: _ListingFilters(
+              language: _language,
+              foil: _foil,
+              minCondition: _minCondition,
+              onLanguageChanged: (v) {
+                setState(() => _language = v);
+                _onFiltersChanged();
+              },
+              onFoilChanged: (v) {
+                setState(() => _foil = v);
+                _onFiltersChanged();
+              },
+              onMinConditionChanged: (v) {
+                setState(() => _minCondition = v);
+                _onFiltersChanged();
               },
             ),
           ),
@@ -451,7 +538,7 @@ class _SearchScreenState extends State<SearchScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _CardThumb(url: row.imageUrl),
+                        CardThumb(url: row.imageUrl),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
@@ -578,8 +665,11 @@ class _SearchScreenState extends State<SearchScreen> {
                                 [
                                   if (l.canSellViaHub) 'Zero',
                                   if (!l.canSellViaHub) 'Direct',
+                                  if (l.language != null)
+                                    CardLanguages.labelFor(l.language),
                                   if (l.condition != null) l.condition,
                                   if (l.foil == true) 'Foil',
+                                  if (l.foil == false) 'Non-foil',
                                   if (l.quantity != null) 'qty ${l.quantity}',
                                 ].join(' · '),
                               ),
@@ -602,45 +692,115 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 }
 
-class _CardThumb extends StatelessWidget {
-  const _CardThumb({required this.url});
-  final String? url;
+class _ListingFilters extends StatelessWidget {
+  const _ListingFilters({
+    required this.language,
+    required this.foil,
+    required this.minCondition,
+    required this.onLanguageChanged,
+    required this.onFoilChanged,
+    required this.onMinConditionChanged,
+  });
+
+  final String? language;
+  final bool? foil;
+  final CardCondition? minCondition;
+  final ValueChanged<String?> onLanguageChanged;
+  final ValueChanged<bool?> onFoilChanged;
+  final ValueChanged<CardCondition?> onMinConditionChanged;
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
-      child: SizedBox(
-        width: 56,
-        height: 78,
-        child: url == null
-            ? ColoredBox(
-                color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                child: const Icon(Icons.image_not_supported_outlined, size: 20),
-              )
-            : Image.network(
-                url!,
-                fit: BoxFit.cover,
-                errorBuilder: (_, _, _) => ColoredBox(
-                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
-                  child: const Icon(Icons.broken_image_outlined, size: 20),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Text(
+          'Listing filters (also saved when you add to the watchlist)',
+          style: Theme.of(context).textTheme.titleSmall,
+        ),
+        const SizedBox(height: 8),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String?>(
+                // ignore: deprecated_member_use
+                value: language,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Language',
+                  border: OutlineInputBorder(),
+                  isDense: true,
                 ),
-                loadingBuilder: (context, child, progress) {
-                  if (progress == null) return child;
-                  return ColoredBox(
-                    color:
-                        Theme.of(context).colorScheme.surfaceContainerHighest,
-                    child: const Center(
-                      child: SizedBox(
-                        width: 16,
-                        height: 16,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      ),
+                items: [
+                  const DropdownMenuItem<String?>(
+                    value: null,
+                    child: Text('Any'),
+                  ),
+                  ...CardLanguages.options.map(
+                    (o) => DropdownMenuItem<String?>(
+                      value: o.$1,
+                      child: Text(o.$2, overflow: TextOverflow.ellipsis),
                     ),
-                  );
+                  ),
+                ],
+                onChanged: onLanguageChanged,
+              ),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                // ignore: deprecated_member_use
+                value: foil == null ? 'any' : (foil! ? 'foil' : 'non'),
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: 'Foil',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                ),
+                items: const [
+                  DropdownMenuItem(value: 'any', child: Text('Any')),
+                  DropdownMenuItem(value: 'foil', child: Text('Foil only')),
+                  DropdownMenuItem(value: 'non', child: Text('Non-foil')),
+                ],
+                onChanged: (v) {
+                  if (v == null || v == 'any') {
+                    onFoilChanged(null);
+                  } else if (v == 'foil') {
+                    onFoilChanged(true);
+                  } else {
+                    onFoilChanged(false);
+                  }
                 },
               ),
-      ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        DropdownButtonFormField<CardCondition?>(
+          // ignore: deprecated_member_use
+          value: minCondition,
+          isExpanded: true,
+          decoration: const InputDecoration(
+            labelText: 'Min. condition',
+            helperText: 'Includes this grade and better (e.g. SP includes NM)',
+            border: OutlineInputBorder(),
+            isDense: true,
+          ),
+          items: [
+            const DropdownMenuItem<CardCondition?>(
+              value: null,
+              child: Text('Any'),
+            ),
+            ...CardCondition.values.map(
+              (c) => DropdownMenuItem<CardCondition?>(
+                value: c,
+                child: Text(c.label),
+              ),
+            ),
+          ],
+          onChanged: onMinConditionChanged,
+        ),
+      ],
     );
   }
 }
