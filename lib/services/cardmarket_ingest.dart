@@ -1,0 +1,299 @@
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:csv/csv.dart';
+import 'package:dio/dio.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
+/// Cardmarket public MTG catalogue + daily price guide ingest (game id 1).
+///
+/// Prefer official JSON downloads; also accepts CSV/JSON via file picker.
+class CardmarketIngest {
+  CardmarketIngest({Dio? dio})
+      : _dio = dio ??
+            Dio(
+              BaseOptions(
+                connectTimeout: const Duration(seconds: 30),
+                receiveTimeout: const Duration(minutes: 3),
+              ),
+            );
+
+  final Dio _dio;
+
+  static const productsSinglesUrl =
+      'https://downloads.s3.cardmarket.com/productCatalog/productList/products_singles_1.json';
+  static const priceGuideUrl =
+      'https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json';
+
+  Future<Directory> _cacheDir() async {
+    final root = await getApplicationDocumentsDirectory();
+    final dir = Directory(p.join(root.path, 'cardmarket'));
+    if (!await dir.exists()) await dir.create(recursive: true);
+    return dir;
+  }
+
+  Future<File> _productsFile() async =>
+      File(p.join((await _cacheDir()).path, 'products_singles_1.json'));
+
+  Future<File> _priceGuideFile() async =>
+      File(p.join((await _cacheDir()).path, 'price_guide_1.json'));
+
+  Future<CardmarketDownloadResult> downloadGuides({
+    void Function(String step)? onProgress,
+  }) async {
+    onProgress?.call('Downloading MTG singles catalogue…');
+    final products = await _productsFile();
+    await _downloadTo(productsSinglesUrl, products);
+
+    onProgress?.call('Downloading MTG price guide…');
+    final guide = await _priceGuideFile();
+    await _downloadTo(priceGuideUrl, guide);
+
+    final productsCount = await _countProductsJson(products);
+    final pricesCount = await _countPriceGuidesJson(guide);
+    return CardmarketDownloadResult(
+      productsPath: products.path,
+      priceGuidePath: guide.path,
+      productsCount: productsCount,
+      pricesCount: pricesCount,
+    );
+  }
+
+  Future<void> _downloadTo(String url, File dest) async {
+    final tmp = File('${dest.path}.tmp');
+    await _dio.download(url, tmp.path);
+    if (await dest.exists()) await dest.delete();
+    await tmp.rename(dest.path);
+  }
+
+  Future<Map<int, CmProduct>> loadProducts({String? overridePath}) async {
+    final file = overridePath != null
+        ? File(overridePath)
+        : await _productsFile();
+    if (!await file.exists()) return {};
+
+    if (file.path.toLowerCase().endsWith('.csv')) {
+      return _parseProductsCsv(await file.readAsString());
+    }
+    return _parseProductsJson(await file.readAsString());
+  }
+
+  Future<Map<int, CmPriceGuide>> loadPriceGuide({String? overridePath}) async {
+    final file = overridePath != null
+        ? File(overridePath)
+        : await _priceGuideFile();
+    if (!await file.exists()) return {};
+
+    if (file.path.toLowerCase().endsWith('.csv')) {
+      return _parsePriceGuideCsv(await file.readAsString());
+    }
+    return _parsePriceGuideJson(await file.readAsString());
+  }
+
+  Future<CardmarketCacheStatus> cacheStatus() async {
+    final products = await _productsFile();
+    final guide = await _priceGuideFile();
+    return CardmarketCacheStatus(
+      productsExists: await products.exists(),
+      priceGuideExists: await guide.exists(),
+      productsModified: await products.exists() ? await products.lastModified() : null,
+      priceGuideModified:
+          await guide.exists() ? await guide.lastModified() : null,
+    );
+  }
+
+  Future<int> _countProductsJson(File file) async {
+    final map = await loadProducts(overridePath: file.path);
+    return map.length;
+  }
+
+  Future<int> _countPriceGuidesJson(File file) async {
+    final map = await loadPriceGuide(overridePath: file.path);
+    return map.length;
+  }
+
+  Map<int, CmProduct> _parseProductsJson(String raw) {
+    final decoded = jsonDecode(raw);
+    final list = decoded is Map<String, dynamic>
+        ? decoded['products'] as List<dynamic>? ?? []
+        : decoded is List
+            ? decoded
+            : <dynamic>[];
+    final out = <int, CmProduct>{};
+    for (final item in list) {
+      if (item is! Map<String, dynamic>) continue;
+      final id = item['idProduct'] as int?;
+      if (id == null) continue;
+      out[id] = CmProduct(
+        idProduct: id,
+        name: item['name'] as String? ?? '',
+        expansionId: item['idExpansion'] as int? ?? 0,
+        categoryName: item['categoryName'] as String? ?? '',
+      );
+    }
+    return out;
+  }
+
+  Map<int, CmPriceGuide> _parsePriceGuideJson(String raw) {
+    final decoded = jsonDecode(raw);
+    final list = decoded is Map<String, dynamic>
+        ? decoded['priceGuides'] as List<dynamic>? ?? []
+        : decoded is List
+            ? decoded
+            : <dynamic>[];
+    final out = <int, CmPriceGuide>{};
+    for (final item in list) {
+      if (item is! Map<String, dynamic>) continue;
+      final id = item['idProduct'] as int?;
+      if (id == null) continue;
+      out[id] = CmPriceGuide(
+        idProduct: id,
+        avg: _asDouble(item['avg']),
+        low: _asDouble(item['low']),
+        trend: _asDouble(item['trend']),
+        avg7: _asDouble(item['avg7']),
+        avg30: _asDouble(item['avg30']),
+      );
+    }
+    return out;
+  }
+
+  Map<int, CmProduct> _parseProductsCsv(String raw) {
+    final rows = csv.decode(raw);
+    if (rows.isEmpty) return {};
+    final header = rows.first.map((e) => e.toString()).toList();
+    final idIdx = _col(header, ['idProduct', 'id_product']);
+    final nameIdx = _col(header, ['Name', 'name']);
+    final expIdx = _col(header, ['Expansion ID', 'idExpansion', 'Expansion']);
+    final out = <int, CmProduct>{};
+    for (final row in rows.skip(1)) {
+      if (row.length <= idIdx) continue;
+      final id = int.tryParse(row[idIdx].toString());
+      if (id == null) continue;
+      out[id] = CmProduct(
+        idProduct: id,
+        name: nameIdx >= 0 && nameIdx < row.length ? row[nameIdx].toString() : '',
+        expansionId: expIdx >= 0 && expIdx < row.length
+            ? int.tryParse(row[expIdx].toString()) ?? 0
+            : 0,
+      );
+    }
+    return out;
+  }
+
+  Map<int, CmPriceGuide> _parsePriceGuideCsv(String raw) {
+    final rows = csv.decode(raw);
+    if (rows.isEmpty) return {};
+    final header = rows.first.map((e) => e.toString()).toList();
+    final idIdx = _col(header, ['idProduct', 'id_product']);
+    final avgIdx = _col(header, ['Avg', 'avg']);
+    final lowIdx = _col(header, ['Low', 'low']);
+    final trendIdx = _col(header, ['Trend', 'trend']);
+    final avg7Idx = _col(header, ['Avg7', 'avg7']);
+    final avg30Idx = _col(header, ['Avg30', 'avg30']);
+    final out = <int, CmPriceGuide>{};
+    for (final row in rows.skip(1)) {
+      if (row.length <= idIdx) continue;
+      final id = int.tryParse(row[idIdx].toString());
+      if (id == null) continue;
+      out[id] = CmPriceGuide(
+        idProduct: id,
+        avg: _cellDouble(row, avgIdx),
+        low: _cellDouble(row, lowIdx),
+        trend: _cellDouble(row, trendIdx),
+        avg7: _cellDouble(row, avg7Idx),
+        avg30: _cellDouble(row, avg30Idx),
+      );
+    }
+    return out;
+  }
+
+  int _col(List<String> header, List<String> names) {
+    for (final n in names) {
+      final i = header.indexWhere((h) => h.toLowerCase() == n.toLowerCase());
+      if (i >= 0) return i;
+    }
+    return -1;
+  }
+
+  double? _cellDouble(List<dynamic> row, int idx) {
+    if (idx < 0 || idx >= row.length) return null;
+    return _asDouble(row[idx]);
+  }
+
+  double? _asDouble(Object? v) {
+    if (v == null) return null;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString().replaceAll(',', '.'));
+  }
+}
+
+class CmProduct {
+  CmProduct({
+    required this.idProduct,
+    required this.name,
+    required this.expansionId,
+    this.categoryName = '',
+  });
+  final int idProduct;
+  final String name;
+  final int expansionId;
+  final String categoryName;
+}
+
+class CmPriceGuide {
+  CmPriceGuide({
+    required this.idProduct,
+    this.avg,
+    this.low,
+    this.trend,
+    this.avg7,
+    this.avg30,
+  });
+  final int idProduct;
+  final double? avg;
+  final double? low;
+  final double? trend;
+  final double? avg7;
+  final double? avg30;
+
+  int? get trendCents => _toCents(trend);
+  int? get lowCents => _toCents(low);
+  int? get avgCents => _toCents(avg);
+  int? get avg7Cents => _toCents(avg7);
+  int? get avg30Cents => _toCents(avg30);
+
+  static int? _toCents(double? euros) {
+    if (euros == null) return null;
+    return (euros * 100).round();
+  }
+}
+
+class CardmarketDownloadResult {
+  CardmarketDownloadResult({
+    required this.productsPath,
+    required this.priceGuidePath,
+    required this.productsCount,
+    required this.pricesCount,
+  });
+  final String productsPath;
+  final String priceGuidePath;
+  final int productsCount;
+  final int pricesCount;
+}
+
+class CardmarketCacheStatus {
+  CardmarketCacheStatus({
+    required this.productsExists,
+    required this.priceGuideExists,
+    this.productsModified,
+    this.priceGuideModified,
+  });
+  final bool productsExists;
+  final bool priceGuideExists;
+  final DateTime? productsModified;
+  final DateTime? priceGuideModified;
+
+  bool get ready => productsExists && priceGuideExists;
+}
