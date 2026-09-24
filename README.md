@@ -4,13 +4,17 @@ EU Magic: The Gathering price tracker for **Android** (Flutter). Tracks **Cardma
 
 ## Requirements
 
-- Flutter SDK (stable) — this machine uses `%USERPROFILE%\flutter` (also on user PATH)
+- Flutter SDK (stable) at `C:\flutter` (no spaces — required on Windows)
+- Pub cache at `C:\pub-cache` (`PUB_CACHE` user env var)
+- Project checkout at `C:\dev\card-price-tracker` (avoid paths under `C:\Users\...\` when the username has a space)
 - Android emulator **or** a USB-debugging physical device
+
+> **Windows note:** Flutter native-asset hooks break if the Flutter SDK or project path contains spaces (e.g. `C:\Users\First Last\...`). Use the paths above.
 
 ## Run on Android
 
 ```powershell
-cd $env:USERPROFILE\Projects\card-price-tracker
+cd C:\dev\card-price-tracker
 flutter pub get
 flutter devices
 flutter run
