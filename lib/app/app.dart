@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../data/database.dart';
 import '../services/cardmarket_ingest.dart';
 import '../services/cardtrader_client.dart';
+import '../services/scryfall_client.dart';
 import '../services/secure_token_store.dart';
 import '../services/sync_service.dart';
 import 'router.dart';
@@ -20,6 +21,7 @@ class _CardPriceAppState extends State<CardPriceApp> {
   late final AppDatabase _db;
   late final SecureTokenStore _tokens;
   late final CardTraderClient _ct;
+  late final ScryfallClient _scryfall;
   late final CardmarketIngest _cm;
   late final SyncService _sync;
   late final GoRouter _router;
@@ -30,6 +32,7 @@ class _CardPriceAppState extends State<CardPriceApp> {
     _db = AppDatabase();
     _tokens = SecureTokenStore();
     _ct = CardTraderClient(tokenProvider: _tokens.readCardTraderToken);
+    _scryfall = ScryfallClient();
     _cm = CardmarketIngest();
     _sync = SyncService(db: _db, ct: _ct, cm: _cm);
     _router = buildAppRouter();
@@ -48,6 +51,7 @@ class _CardPriceAppState extends State<CardPriceApp> {
         Provider.value(value: _db),
         Provider.value(value: _tokens),
         Provider.value(value: _ct),
+        Provider.value(value: _scryfall),
         Provider.value(value: _cm),
         Provider.value(value: _sync),
       ],

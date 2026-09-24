@@ -22,6 +22,8 @@ class CardTraderClient {
 
   /// In-memory blueprint cache keyed by expansion id.
   final Map<int, List<CtBlueprint>> _blueprintCache = {};
+  List<CtExpansion>? _mtgExpansionsCache;
+  Map<String, CtExpansion>? _expansionsByCode;
 
   Future<void> _auth() async {
     final token = await tokenProvider();
@@ -37,15 +39,61 @@ class CardTraderClient {
     return CtAppInfo.fromJson(res.data!);
   }
 
-  Future<List<CtExpansion>> listMtgExpansions() async {
+  Future<List<CtExpansion>> listMtgExpansions({bool forceRefresh = false}) async {
+    if (!forceRefresh && _mtgExpansionsCache != null) {
+      return _mtgExpansionsCache!;
+    }
     await _auth();
     final res = await _dio.get<List<dynamic>>('/expansions');
     final all = (res.data ?? [])
         .whereType<Map<String, dynamic>>()
         .map(CtExpansion.fromJson)
         .toList();
-    return all.where((e) => e.gameId == mtgGameId).toList()
+    final mtg = all.where((e) => e.gameId == mtgGameId).toList()
       ..sort((a, b) => a.name.compareTo(b.name));
+    _mtgExpansionsCache = mtg;
+    _expansionsByCode = {
+      for (final e in mtg)
+        if (e.code != null && e.code!.isNotEmpty) e.code!.toLowerCase(): e,
+    };
+    return mtg;
+  }
+
+  Future<CtExpansion?> expansionForSetCode(String setCode) async {
+    await listMtgExpansions();
+    return _expansionsByCode?[setCode.toLowerCase()];
+  }
+
+  /// Resolve a Scryfall printing to a CardTrader blueprint (by scryfall id, then name).
+  Future<CtBlueprint?> blueprintForPrinting({
+    required String setCode,
+    required String cardName,
+    String? scryfallId,
+  }) async {
+    final expansion = await expansionForSetCode(setCode);
+    if (expansion == null) return null;
+    final blueprints = await listBlueprints(expansion.id);
+    if (scryfallId != null && scryfallId.isNotEmpty) {
+      for (final b in blueprints) {
+        if (b.scryfallId == scryfallId) {
+          return b.copyWithExpansionName(expansion.name);
+        }
+      }
+    }
+    final target = cardName.toLowerCase();
+    for (final b in blueprints) {
+      if (b.name.toLowerCase() == target) {
+        return b.copyWithExpansionName(expansion.name);
+      }
+    }
+    // Split card faces: "Fire // Ice" vs front face only.
+    final front = target.split('//').first.trim();
+    for (final b in blueprints) {
+      if (b.name.toLowerCase() == front) {
+        return b.copyWithExpansionName(expansion.name);
+      }
+    }
+    return null;
   }
 
   Future<List<CtBlueprint>> listBlueprints(
@@ -249,6 +297,15 @@ class CtBlueprint {
   final String? expansionName;
   final String? imageUrl;
   final String? scryfallId;
+
+  CtBlueprint copyWithExpansionName(String name) => CtBlueprint(
+        id: id,
+        name: this.name,
+        expansionId: expansionId,
+        expansionName: name,
+        imageUrl: imageUrl,
+        scryfallId: scryfallId,
+      );
 
   String? get absoluteImageUrl {
     final u = imageUrl?.trim();
