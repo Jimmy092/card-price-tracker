@@ -1,10 +1,14 @@
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../bloc/settings/settings_cubit.dart';
+import '../bloc/settings/settings_state.dart';
+import '../bloc/sync/sync_cubit.dart';
 import '../data/database.dart';
 import '../services/cardmarket_ingest.dart';
 import '../services/cardtrader_client.dart';
+import '../services/landed_cost.dart';
 import '../services/secure_token_store.dart';
 import '../services/sync_service.dart';
 import '../widgets/ui_kit.dart';
@@ -205,6 +209,104 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ),
           const SizedBox(height: 18),
           const SectionHeader(
+            title: 'Alerts & auto-sync',
+            subtitle: 'Local notifications · daily refresh',
+          ),
+          GlowCard(
+            child: BlocBuilder<SettingsCubit, SettingsState>(
+              builder: (context, settings) {
+                final last = settings.lastFullSyncAt;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Price alerts'),
+                      subtitle: const Text(
+                        'Notify when watchlist buy/sell targets hit',
+                      ),
+                      value: settings.alertsEnabled,
+                      onChanged: (v) =>
+                          context.read<SettingsCubit>().setAlertsEnabled(v),
+                    ),
+                    SwitchListTile(
+                      contentPadding: EdgeInsets.zero,
+                      title: const Text('Daily auto-sync'),
+                      subtitle: Text(
+                        last == null
+                            ? 'Never synced yet'
+                            : 'Last full sync: ${_fmt(last)}',
+                      ),
+                      value: settings.autoSyncEnabled,
+                      onChanged: (v) =>
+                          context.read<SettingsCubit>().setAutoSyncEnabled(v),
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 18),
+          const SectionHeader(
+            title: 'Landed-cost estimates',
+            subtitle: 'Rough CT Zero fee + Direct shipping',
+          ),
+          GlowCard(
+            child: BlocBuilder<SettingsCubit, SettingsState>(
+              builder: (context, settings) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Text(
+                      LandedCost.explain(
+                        zeroFeeCents: settings.zeroFeeCents,
+                        directShippingCents: settings.directShippingCents,
+                      ),
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 12),
+                    TextFormField(
+                      initialValue:
+                          (settings.zeroFeeCents / 100).toStringAsFixed(2),
+                      decoration: const InputDecoration(
+                        labelText: 'Zero hub fee (€)',
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onFieldSubmitted: (raw) {
+                        final cents = _parseEurToCents(raw);
+                        if (cents != null) {
+                          context.read<SettingsCubit>().setZeroFeeCents(cents);
+                        }
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    TextFormField(
+                      initialValue: (settings.directShippingCents / 100)
+                          .toStringAsFixed(2),
+                      decoration: const InputDecoration(
+                        labelText: 'Direct shipping estimate (€)',
+                      ),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
+                      onFieldSubmitted: (raw) {
+                        final cents = _parseEurToCents(raw);
+                        if (cents != null) {
+                          context
+                              .read<SettingsCubit>()
+                              .setDirectShippingCents(cents);
+                        }
+                      },
+                    ),
+                  ],
+                );
+              },
+            ),
+          ),
+          const SizedBox(height: 18),
+          const SectionHeader(
             title: 'Sync',
             subtitle: 'Refresh watchlist prices',
           ),
@@ -220,11 +322,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       onPressed: _busy
                           ? null
                           : () => _run(() async {
-                                final outcome = await sync.syncAll(
-                                  onProgress: (m) =>
-                                      setState(() => _status = m),
-                                );
-                                setState(() => _status = outcome.message);
+                                final syncCubit = context.read<SyncCubit>();
+                                final settingsCubit =
+                                    context.read<SettingsCubit>();
+                                await syncCubit.syncAll();
+                                if (!mounted) return;
+                                settingsCubit.refresh();
+                                setState(() => _status = 'Sync finished');
                               }),
                       child: const Text('Sync now'),
                     ),
@@ -318,4 +422,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   String _fmt(DateTime? d) => d?.toLocal().toString().split('.').first ?? '—';
+
+  int? _parseEurToCents(String raw) {
+    final cleaned = raw.trim().replaceAll('€', '').replaceAll(' ', '');
+    if (cleaned.isEmpty) return null;
+    final normalized = cleaned.replaceAll(',', '.');
+    final value = double.tryParse(normalized);
+    if (value == null || value < 0) return null;
+    return (value * 100).round();
+  }
 }

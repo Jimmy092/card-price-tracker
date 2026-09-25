@@ -1,121 +1,170 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
 import '../app/theme.dart';
+import '../bloc/settings/settings_cubit.dart';
+import '../bloc/settings/settings_state.dart';
+import '../bloc/sync/sync_cubit.dart';
+import '../bloc/sync/sync_state.dart';
+import '../bloc/watchlist/watchlist_cubit.dart';
+import '../bloc/watchlist/watchlist_state.dart';
 import '../data/database.dart';
-import '../services/sync_service.dart';
 import '../widgets/card_thumb.dart';
+import '../widgets/deal_widgets.dart';
 import '../widgets/economics_banner.dart';
+import '../widgets/lot_sheets.dart';
 import '../widgets/month_price_sparkline.dart';
 import '../widgets/price_format.dart';
+import '../widgets/track_purchase_sheet.dart';
 import '../widgets/ui_kit.dart';
 
-class WatchlistScreen extends StatefulWidget {
+class WatchlistScreen extends StatelessWidget {
   const WatchlistScreen({super.key});
 
-  @override
-  State<WatchlistScreen> createState() => _WatchlistScreenState();
-}
+  Future<void> _setTargets(BuildContext context, WatchlistRow row) async {
+    final result = await showWatchlistTargetsSheet(
+      context,
+      cardName: row.card.name,
+      targetBuyCents: row.item.targetBuyCents,
+      targetSellCents: row.item.targetSellCents,
+    );
+    if (result == null || !context.mounted) return;
+    await context.read<WatchlistCubit>().setTargets(
+          watchlistItemId: row.item.id,
+          targetBuyCents: result.$1,
+          targetSellCents: result.$2,
+        );
+  }
 
-class _WatchlistScreenState extends State<WatchlistScreen> {
-  bool _syncing = false;
-
-  Future<void> _syncAll() async {
-    setState(() => _syncing = true);
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final outcome = await context.read<SyncService>().syncAll(
-            onProgress: (m) {
-              if (!mounted) return;
-              messenger
-                ..hideCurrentSnackBar()
-                ..showSnackBar(SnackBar(content: Text(m)));
-            },
-          );
-      if (!mounted) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(outcome.message)));
-    } finally {
-      if (mounted) setState(() => _syncing = false);
-    }
+  Future<void> _addToPortfolio(BuildContext context, WatchlistRow row) async {
+    final draft = await showTrackPurchaseSheet(
+      context,
+      cardName: row.card.name,
+      expansion: row.card.expansion,
+      initialFoil: row.item.foil,
+      initialLanguage: row.item.language,
+      initialCondition: row.item.minCondition,
+      suggestedPaidCents: row.ctBestCents ?? row.latestCm?.cmTrendCents,
+    );
+    if (draft == null || !context.mounted) return;
+    await context.read<WatchlistCubit>().addToPortfolio(
+          row: row,
+          paidCents: draft.paidCents,
+          purchasedAt: draft.purchasedAt,
+          foil: draft.foil,
+          language: draft.language,
+          condition: draft.condition,
+          quantity: draft.quantity,
+          notes: draft.notes,
+        );
   }
 
   @override
   Widget build(BuildContext context) {
-    final db = context.watch<AppDatabase>();
-    return Scaffold(
-      backgroundColor: Colors.transparent,
-      appBar: AppBar(
-        title: const Text('Watchlist'),
-        actions: [
-          SyncActionButton(syncing: _syncing, onPressed: _syncAll),
-          const SizedBox(width: 8),
-        ],
-      ),
-      body: Column(
-        children: [
-          const EconomicsBanner(compact: true),
-          Expanded(
-            child: StreamBuilder<List<WatchlistRow>>(
-              stream: db.watchWatchlist(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-                if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final rows = snapshot.data!;
-                if (rows.isEmpty) {
-                  return EmptyState(
-                    icon: Icons.style_outlined,
-                    title: 'Your vault is empty',
-                    message:
-                        'Search a card, set foil/language filters, then tap + '
-                        'to track live CT against CM guides.',
-                    actionLabel: 'Search cards',
-                    onAction: () => context.go('/search'),
-                  );
-                }
-
-                return ListView.builder(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-                  itemCount: rows.length + 1,
-                  itemBuilder: (context, i) {
-                    if (i == 0) {
-                      return SectionHeader(
-                        title: '${rows.length} tracked',
-                        subtitle: 'Tap a card for history · pull sync anytime',
-                      );
-                    }
-                    final row = rows[i - 1];
-                    return TweenAnimationBuilder<double>(
-                      tween: Tween(begin: 0, end: 1),
-                      duration: Duration(milliseconds: 280 + (i * 28).clamp(0, 220)),
-                      curve: Curves.easeOutCubic,
-                      builder: (context, t, child) {
-                        return Opacity(
-                          opacity: t,
-                          child: Transform.translate(
-                            offset: Offset(0, (1 - t) * 16),
-                            child: child,
-                          ),
-                        );
-                      },
-                      child: _WatchlistCard(
-                        row: row,
-                        onOpen: () => context.push('/card/${row.card.id}'),
-                        onDelete: () => db.removeFromWatchlist(row.item.id),
-                      ),
-                    );
-                  },
+    return MultiBlocListener(
+      listeners: [
+        BlocListener<WatchlistCubit, WatchlistState>(
+          listenWhen: (p, n) => n.snackMessage != null && n.snackMessage != p.snackMessage,
+          listener: (context, state) {
+            final msg = state.snackMessage;
+            if (msg == null) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text(msg),
+                action: SnackBarAction(
+                  label: 'Open',
+                  onPressed: () => context.go('/portfolio'),
+                ),
+              ),
+            );
+            context.read<WatchlistCubit>().clearSnack();
+          },
+        ),
+      ],
+      child: Scaffold(
+        backgroundColor: Colors.transparent,
+        appBar: AppBar(
+          title: const Text('Watchlist'),
+          actions: [
+            BlocBuilder<SyncCubit, SyncState>(
+              builder: (context, sync) {
+                return SyncActionButton(
+                  syncing: sync.isRunning,
+                  onPressed: () => context.read<SyncCubit>().syncAll(),
                 );
               },
             ),
-          ),
-        ],
+            const SizedBox(width: 8),
+          ],
+        ),
+        body: Column(
+          children: [
+            const EconomicsBanner(compact: true),
+            Expanded(
+              child: BlocBuilder<WatchlistCubit, WatchlistState>(
+                builder: (context, state) {
+                  if (state.status == WatchlistStatus.error) {
+                    return Center(child: Text('Error: ${state.error}'));
+                  }
+                  if (state.status == WatchlistStatus.loading) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final rows = state.rows;
+                  if (rows.isEmpty) {
+                    return EmptyState(
+                      icon: Icons.style_outlined,
+                      title: 'Your vault is empty',
+                      message:
+                          'Search a card, set foil/language filters, then tap + '
+                          'to track live CT against CM guides.',
+                      actionLabel: 'Search cards',
+                      onAction: () => context.go('/search'),
+                    );
+                  }
+
+                  return ListView.builder(
+                    padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                    itemCount: rows.length + 1,
+                    itemBuilder: (context, i) {
+                      if (i == 0) {
+                        return SectionHeader(
+                          title: '${rows.length} tracked',
+                          subtitle: 'Tap a card for history · pull sync anytime',
+                        );
+                      }
+                      final row = rows[i - 1];
+                      return TweenAnimationBuilder<double>(
+                        tween: Tween(begin: 0, end: 1),
+                        duration:
+                            Duration(milliseconds: 280 + (i * 28).clamp(0, 220)),
+                        curve: Curves.easeOutCubic,
+                        builder: (context, t, child) {
+                          return Opacity(
+                            opacity: t,
+                            child: Transform.translate(
+                              offset: Offset(0, (1 - t) * 16),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: _WatchlistCard(
+                          row: row,
+                          onOpen: () => context.push('/card/${row.card.id}'),
+                          onDelete: () => context
+                              .read<WatchlistCubit>()
+                              .remove(row.item.id),
+                          onTargets: () => _setTargets(context, row),
+                          onPortfolio: () => _addToPortfolio(context, row),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -126,11 +175,15 @@ class _WatchlistCard extends StatelessWidget {
     required this.row,
     required this.onOpen,
     required this.onDelete,
+    required this.onTargets,
+    required this.onPortfolio,
   });
 
   final WatchlistRow row;
   final VoidCallback onOpen;
   final VoidCallback onDelete;
+  final VoidCallback onTargets;
+  final VoidCallback onPortfolio;
 
   @override
   Widget build(BuildContext context) {
@@ -192,6 +245,24 @@ class _WatchlistCard extends StatelessWidget {
                     ),
                     IconButton(
                       visualDensity: VisualDensity.compact,
+                      tooltip: 'Price targets',
+                      onPressed: onTargets,
+                      icon: Icon(
+                        Icons.notifications_active_outlined,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Add to Portfolio',
+                      onPressed: onPortfolio,
+                      icon: Icon(
+                        Icons.account_balance_wallet_outlined,
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                    IconButton(
+                      visualDensity: VisualDensity.compact,
                       tooltip: 'Remove',
                       onPressed: onDelete,
                       icon: Icon(
@@ -213,6 +284,30 @@ class _WatchlistCard extends StatelessWidget {
                 if (filters.isNotEmpty) ...[
                   const SizedBox(height: 8),
                   Wrap(spacing: 6, runSpacing: 6, children: filters),
+                ],
+                if (row.item.targetBuyCents != null ||
+                    row.item.targetSellCents != null) ...[
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      if (row.item.targetBuyCents != null)
+                        PricePill(
+                          label: 'Buy ≤',
+                          value: formatEurCents(row.item.targetBuyCents),
+                          tone: PriceTone.up,
+                          compact: true,
+                        ),
+                      if (row.item.targetSellCents != null)
+                        PricePill(
+                          label: 'Sell ≥',
+                          value: formatEurCents(row.item.targetSellCents),
+                          tone: PriceTone.down,
+                          compact: true,
+                        ),
+                    ],
+                  ),
                 ],
                 const SizedBox(height: 10),
                 if (!hasPrices)
@@ -266,6 +361,17 @@ class _WatchlistCard extends StatelessWidget {
                           compact: true,
                         ),
                     ],
+                  ),
+                  const SizedBox(height: 8),
+                  BlocBuilder<SettingsCubit, SettingsState>(
+                    builder: (context, settings) {
+                      return LandedCostPills(
+                        zeroListCents: ctZero,
+                        directListCents: ctDirect,
+                        zeroFeeCents: settings.zeroFeeCents,
+                        directShippingCents: settings.directShippingCents,
+                      );
+                    },
                   ),
                   const SizedBox(height: 10),
                   MonthPriceSparkline(

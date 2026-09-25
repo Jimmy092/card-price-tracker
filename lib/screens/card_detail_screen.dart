@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart' hide Card;
-import 'package:provider/provider.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../app/theme.dart';
+import '../bloc/sync/sync_cubit.dart';
+import '../bloc/sync/sync_state.dart';
 import '../data/database.dart';
-import '../services/sync_service.dart';
 import '../widgets/card_thumb.dart';
 import '../widgets/dual_price_chart.dart';
 import '../widgets/economics_banner.dart';
@@ -20,58 +21,45 @@ class CardDetailScreen extends StatefulWidget {
 }
 
 class _CardDetailScreenState extends State<CardDetailScreen> {
-  bool _syncing = false;
   int _refresh = 0;
-
-  Future<void> _refreshPrices() async {
-    setState(() => _syncing = true);
-    final messenger = ScaffoldMessenger.of(context);
-    try {
-      final outcome = await context.read<SyncService>().syncWatchlistCard(
-            widget.cardId,
-            onProgress: (m) {
-              if (!mounted) return;
-              messenger
-                ..hideCurrentSnackBar()
-                ..showSnackBar(SnackBar(content: Text(m)));
-            },
-          );
-      if (!mounted) return;
-      messenger
-        ..hideCurrentSnackBar()
-        ..showSnackBar(SnackBar(content: Text(outcome.message)));
-      setState(() => _refresh++);
-    } finally {
-      if (mounted) setState(() => _syncing = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    final db = context.watch<AppDatabase>();
-    return FutureBuilder<Card?>(
-      key: ValueKey(_refresh),
-      future: db.getCard(widget.cardId),
-      builder: (context, cardSnap) {
-        final card = cardSnap.data;
-        return AppBackdrop(
-          child: Scaffold(
-            backgroundColor: Colors.transparent,
-            appBar: AppBar(
-              title: Text(card?.name ?? 'Card'),
-              actions: [
-                SyncActionButton(
-                  syncing: _syncing,
-                  onPressed: card == null ? null : _refreshPrices,
-                ),
-                const SizedBox(width: 8),
-              ],
-            ),
-            body: card == null
-                ? const Center(child: CircularProgressIndicator())
-                : StreamBuilder<List<PriceSnapshot>>(
-                    stream: db.watchSnapshotsForCard(widget.cardId),
-                    builder: (context, snap) {
+    final db = context.read<AppDatabase>();
+    return BlocListener<SyncCubit, SyncState>(
+      listenWhen: (p, n) => n.status == SyncStatus.success,
+      listener: (context, state) => setState(() => _refresh++),
+      child: FutureBuilder<Card?>(
+        key: ValueKey(_refresh),
+        future: db.getCard(widget.cardId),
+        builder: (context, cardSnap) {
+          final card = cardSnap.data;
+          return AppBackdrop(
+            child: Scaffold(
+              backgroundColor: Colors.transparent,
+              appBar: AppBar(
+                title: Text(card?.name ?? 'Card'),
+                actions: [
+                  BlocBuilder<SyncCubit, SyncState>(
+                    builder: (context, sync) {
+                      return SyncActionButton(
+                        syncing: sync.isRunning,
+                        onPressed: card == null
+                            ? null
+                            : () => context
+                                .read<SyncCubit>()
+                                .syncCard(widget.cardId),
+                      );
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                ],
+              ),
+              body: card == null
+                  ? const Center(child: CircularProgressIndicator())
+                  : StreamBuilder<List<PriceSnapshot>>(
+                      stream: db.watchSnapshotsForCard(widget.cardId),
+                      builder: (context, snap) {
                       final all = snap.data ?? [];
                       final cm = all
                           .where((s) => s.source == 'cardmarket')
@@ -273,6 +261,7 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
           ),
         );
       },
+    ),
     );
   }
 }

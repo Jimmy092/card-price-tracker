@@ -67,6 +67,9 @@ class TrackedItems extends Table {
   IntColumn get lastCtZeroCents => integer().nullable()();
   IntColumn get lastCtDirectCents => integer().nullable()();
   DateTimeColumn get valuedAt => dateTime().nullable()();
+  /// When set, this lot is closed — sold for [soldCents] per copy.
+  DateTimeColumn get soldAt => dateTime().nullable()();
+  IntColumn get soldCents => integer().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 

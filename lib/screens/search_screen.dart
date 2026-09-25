@@ -1,15 +1,19 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart' hide Card;
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
-import 'package:provider/provider.dart';
 
+import '../bloc/settings/settings_cubit.dart';
+import '../bloc/settings/settings_state.dart';
 import '../data/database.dart';
 import '../services/cardmarket_ingest.dart';
 import '../services/cardtrader_client.dart';
+import '../services/deal_score.dart';
 import '../services/scryfall_client.dart';
 import '../services/sync_service.dart';
 import '../widgets/card_thumb.dart';
+import '../widgets/deal_widgets.dart';
 import '../widgets/price_format.dart';
 import '../widgets/track_purchase_sheet.dart';
 import '../widgets/ui_kit.dart';
@@ -752,6 +756,10 @@ class _SearchScreenState extends State<SearchScreen> {
         final loadingPrice = bpId != null && _loadingPrices.contains(bpId);
         final top5 = market?.bestListings(limit: 5) ?? const [];
         final cmFrom = _cmFromFor(row);
+        final deal = DealScore.fromPrices(
+          ctBestCents: market?.bestPriceCents,
+          cmFromCents: cmFrom,
+        );
 
         return GlowCard(
           margin: const EdgeInsets.only(bottom: 12),
@@ -799,6 +807,7 @@ class _SearchScreenState extends State<SearchScreen> {
                                 spacing: 6,
                                 runSpacing: 6,
                                 children: [
+                                  DealScoreBadge(score: deal),
                                   PricePill(
                                     label: 'CM From',
                                     value: !_cmLookupReady && cmFrom == null
@@ -836,6 +845,25 @@ class _SearchScreenState extends State<SearchScreen> {
                                         tone: PriceTone.neutral,
                                         compact: true,
                                       ),
+                                    Builder(
+                                      builder: (context) {
+                                        return BlocBuilder<SettingsCubit,
+                                            SettingsState>(
+                                          builder: (context, settings) {
+                                            return LandedCostPills(
+                                              zeroListCents:
+                                                  market.minZeroCents,
+                                              directListCents:
+                                                  market.minDirectCents,
+                                              zeroFeeCents:
+                                                  settings.zeroFeeCents,
+                                              directShippingCents:
+                                                  settings.directShippingCents,
+                                            );
+                                          },
+                                        );
+                                      },
+                                    ),
                                   ] else if (_priceErrors[bpId] != null)
                                     PricePill(
                                       label: 'CT',

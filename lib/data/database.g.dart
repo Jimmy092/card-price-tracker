@@ -1829,6 +1829,26 @@ class $TrackedItemsTable extends TrackedItems
     type: DriftSqlType.dateTime,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _soldAtMeta = const VerificationMeta('soldAt');
+  @override
+  late final GeneratedColumn<DateTime> soldAt = GeneratedColumn<DateTime>(
+    'sold_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _soldCentsMeta = const VerificationMeta(
+    'soldCents',
+  );
+  @override
+  late final GeneratedColumn<int> soldCents = GeneratedColumn<int>(
+    'sold_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1859,6 +1879,8 @@ class $TrackedItemsTable extends TrackedItems
     lastCtZeroCents,
     lastCtDirectCents,
     valuedAt,
+    soldAt,
+    soldCents,
     createdAt,
   ];
   @override
@@ -1993,6 +2015,18 @@ class $TrackedItemsTable extends TrackedItems
         valuedAt.isAcceptableOrUnknown(data['valued_at']!, _valuedAtMeta),
       );
     }
+    if (data.containsKey('sold_at')) {
+      context.handle(
+        _soldAtMeta,
+        soldAt.isAcceptableOrUnknown(data['sold_at']!, _soldAtMeta),
+      );
+    }
+    if (data.containsKey('sold_cents')) {
+      context.handle(
+        _soldCentsMeta,
+        soldCents.isAcceptableOrUnknown(data['sold_cents']!, _soldCentsMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -2072,6 +2106,14 @@ class $TrackedItemsTable extends TrackedItems
         DriftSqlType.dateTime,
         data['${effectivePrefix}valued_at'],
       ),
+      soldAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}sold_at'],
+      ),
+      soldCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}sold_cents'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -2114,6 +2156,10 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
   final int? lastCtZeroCents;
   final int? lastCtDirectCents;
   final DateTime? valuedAt;
+
+  /// When set, this lot is closed — sold for [soldCents] per copy.
+  final DateTime? soldAt;
+  final int? soldCents;
   final DateTime createdAt;
   const TrackedItem({
     required this.id,
@@ -2132,6 +2178,8 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
     this.lastCtZeroCents,
     this.lastCtDirectCents,
     this.valuedAt,
+    this.soldAt,
+    this.soldCents,
     required this.createdAt,
   });
   @override
@@ -2173,6 +2221,12 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
     if (!nullToAbsent || valuedAt != null) {
       map['valued_at'] = Variable<DateTime>(valuedAt);
     }
+    if (!nullToAbsent || soldAt != null) {
+      map['sold_at'] = Variable<DateTime>(soldAt);
+    }
+    if (!nullToAbsent || soldCents != null) {
+      map['sold_cents'] = Variable<int>(soldCents);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -2213,6 +2267,12 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
       valuedAt: valuedAt == null && nullToAbsent
           ? const Value.absent()
           : Value(valuedAt),
+      soldAt: soldAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(soldAt),
+      soldCents: soldCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(soldCents),
       createdAt: Value(createdAt),
     );
   }
@@ -2239,6 +2299,8 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
       lastCtZeroCents: serializer.fromJson<int?>(json['lastCtZeroCents']),
       lastCtDirectCents: serializer.fromJson<int?>(json['lastCtDirectCents']),
       valuedAt: serializer.fromJson<DateTime?>(json['valuedAt']),
+      soldAt: serializer.fromJson<DateTime?>(json['soldAt']),
+      soldCents: serializer.fromJson<int?>(json['soldCents']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -2262,6 +2324,8 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
       'lastCtZeroCents': serializer.toJson<int?>(lastCtZeroCents),
       'lastCtDirectCents': serializer.toJson<int?>(lastCtDirectCents),
       'valuedAt': serializer.toJson<DateTime?>(valuedAt),
+      'soldAt': serializer.toJson<DateTime?>(soldAt),
+      'soldCents': serializer.toJson<int?>(soldCents),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -2283,6 +2347,8 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
     Value<int?> lastCtZeroCents = const Value.absent(),
     Value<int?> lastCtDirectCents = const Value.absent(),
     Value<DateTime?> valuedAt = const Value.absent(),
+    Value<DateTime?> soldAt = const Value.absent(),
+    Value<int?> soldCents = const Value.absent(),
     DateTime? createdAt,
   }) => TrackedItem(
     id: id ?? this.id,
@@ -2313,6 +2379,8 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
         ? lastCtDirectCents.value
         : this.lastCtDirectCents,
     valuedAt: valuedAt.present ? valuedAt.value : this.valuedAt,
+    soldAt: soldAt.present ? soldAt.value : this.soldAt,
+    soldCents: soldCents.present ? soldCents.value : this.soldCents,
     createdAt: createdAt ?? this.createdAt,
   );
   TrackedItem copyWithCompanion(TrackedItemsCompanion data) {
@@ -2347,6 +2415,8 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
           ? data.lastCtDirectCents.value
           : this.lastCtDirectCents,
       valuedAt: data.valuedAt.present ? data.valuedAt.value : this.valuedAt,
+      soldAt: data.soldAt.present ? data.soldAt.value : this.soldAt,
+      soldCents: data.soldCents.present ? data.soldCents.value : this.soldCents,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -2370,6 +2440,8 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
           ..write('lastCtZeroCents: $lastCtZeroCents, ')
           ..write('lastCtDirectCents: $lastCtDirectCents, ')
           ..write('valuedAt: $valuedAt, ')
+          ..write('soldAt: $soldAt, ')
+          ..write('soldCents: $soldCents, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -2393,6 +2465,8 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
     lastCtZeroCents,
     lastCtDirectCents,
     valuedAt,
+    soldAt,
+    soldCents,
     createdAt,
   );
   @override
@@ -2415,6 +2489,8 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
           other.lastCtZeroCents == this.lastCtZeroCents &&
           other.lastCtDirectCents == this.lastCtDirectCents &&
           other.valuedAt == this.valuedAt &&
+          other.soldAt == this.soldAt &&
+          other.soldCents == this.soldCents &&
           other.createdAt == this.createdAt);
 }
 
@@ -2435,6 +2511,8 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
   final Value<int?> lastCtZeroCents;
   final Value<int?> lastCtDirectCents;
   final Value<DateTime?> valuedAt;
+  final Value<DateTime?> soldAt;
+  final Value<int?> soldCents;
   final Value<DateTime> createdAt;
   const TrackedItemsCompanion({
     this.id = const Value.absent(),
@@ -2453,6 +2531,8 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
     this.lastCtZeroCents = const Value.absent(),
     this.lastCtDirectCents = const Value.absent(),
     this.valuedAt = const Value.absent(),
+    this.soldAt = const Value.absent(),
+    this.soldCents = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   TrackedItemsCompanion.insert({
@@ -2472,6 +2552,8 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
     this.lastCtZeroCents = const Value.absent(),
     this.lastCtDirectCents = const Value.absent(),
     this.valuedAt = const Value.absent(),
+    this.soldAt = const Value.absent(),
+    this.soldCents = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : cardId = Value(cardId),
        paidCents = Value(paidCents),
@@ -2493,6 +2575,8 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
     Expression<int>? lastCtZeroCents,
     Expression<int>? lastCtDirectCents,
     Expression<DateTime>? valuedAt,
+    Expression<DateTime>? soldAt,
+    Expression<int>? soldCents,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -2512,6 +2596,8 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
       if (lastCtZeroCents != null) 'last_ct_zero_cents': lastCtZeroCents,
       if (lastCtDirectCents != null) 'last_ct_direct_cents': lastCtDirectCents,
       if (valuedAt != null) 'valued_at': valuedAt,
+      if (soldAt != null) 'sold_at': soldAt,
+      if (soldCents != null) 'sold_cents': soldCents,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -2533,6 +2619,8 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
     Value<int?>? lastCtZeroCents,
     Value<int?>? lastCtDirectCents,
     Value<DateTime?>? valuedAt,
+    Value<DateTime?>? soldAt,
+    Value<int?>? soldCents,
     Value<DateTime>? createdAt,
   }) {
     return TrackedItemsCompanion(
@@ -2552,6 +2640,8 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
       lastCtZeroCents: lastCtZeroCents ?? this.lastCtZeroCents,
       lastCtDirectCents: lastCtDirectCents ?? this.lastCtDirectCents,
       valuedAt: valuedAt ?? this.valuedAt,
+      soldAt: soldAt ?? this.soldAt,
+      soldCents: soldCents ?? this.soldCents,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -2607,6 +2697,12 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
     if (valuedAt.present) {
       map['valued_at'] = Variable<DateTime>(valuedAt.value);
     }
+    if (soldAt.present) {
+      map['sold_at'] = Variable<DateTime>(soldAt.value);
+    }
+    if (soldCents.present) {
+      map['sold_cents'] = Variable<int>(soldCents.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2632,6 +2728,8 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
           ..write('lastCtZeroCents: $lastCtZeroCents, ')
           ..write('lastCtDirectCents: $lastCtDirectCents, ')
           ..write('valuedAt: $valuedAt, ')
+          ..write('soldAt: $soldAt, ')
+          ..write('soldCents: $soldCents, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -5835,6 +5933,8 @@ typedef $$TrackedItemsTableCreateCompanionBuilder =
       Value<int?> lastCtZeroCents,
       Value<int?> lastCtDirectCents,
       Value<DateTime?> valuedAt,
+      Value<DateTime?> soldAt,
+      Value<int?> soldCents,
       Value<DateTime> createdAt,
     });
 typedef $$TrackedItemsTableUpdateCompanionBuilder =
@@ -5855,6 +5955,8 @@ typedef $$TrackedItemsTableUpdateCompanionBuilder =
       Value<int?> lastCtZeroCents,
       Value<int?> lastCtDirectCents,
       Value<DateTime?> valuedAt,
+      Value<DateTime?> soldAt,
+      Value<int?> soldCents,
       Value<DateTime> createdAt,
     });
 
@@ -5985,6 +6087,16 @@ class $$TrackedItemsTableFilterComposer
 
   ColumnFilters<DateTime> get valuedAt => $composableBuilder(
     column: $table.valuedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get soldAt => $composableBuilder(
+    column: $table.soldAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get soldCents => $composableBuilder(
+    column: $table.soldCents,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -6126,6 +6238,16 @@ class $$TrackedItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<DateTime> get soldAt => $composableBuilder(
+    column: $table.soldAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get soldCents => $composableBuilder(
+    column: $table.soldCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -6222,6 +6344,12 @@ class $$TrackedItemsTableAnnotationComposer
 
   GeneratedColumn<DateTime> get valuedAt =>
       $composableBuilder(column: $table.valuedAt, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get soldAt =>
+      $composableBuilder(column: $table.soldAt, builder: (column) => column);
+
+  GeneratedColumn<int> get soldCents =>
+      $composableBuilder(column: $table.soldCents, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -6320,6 +6448,8 @@ class $$TrackedItemsTableTableManager
                 Value<int?> lastCtZeroCents = const Value.absent(),
                 Value<int?> lastCtDirectCents = const Value.absent(),
                 Value<DateTime?> valuedAt = const Value.absent(),
+                Value<DateTime?> soldAt = const Value.absent(),
+                Value<int?> soldCents = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => TrackedItemsCompanion(
                 id: id,
@@ -6338,6 +6468,8 @@ class $$TrackedItemsTableTableManager
                 lastCtZeroCents: lastCtZeroCents,
                 lastCtDirectCents: lastCtDirectCents,
                 valuedAt: valuedAt,
+                soldAt: soldAt,
+                soldCents: soldCents,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -6358,6 +6490,8 @@ class $$TrackedItemsTableTableManager
                 Value<int?> lastCtZeroCents = const Value.absent(),
                 Value<int?> lastCtDirectCents = const Value.absent(),
                 Value<DateTime?> valuedAt = const Value.absent(),
+                Value<DateTime?> soldAt = const Value.absent(),
+                Value<int?> soldCents = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => TrackedItemsCompanion.insert(
                 id: id,
@@ -6376,6 +6510,8 @@ class $$TrackedItemsTableTableManager
                 lastCtZeroCents: lastCtZeroCents,
                 lastCtDirectCents: lastCtDirectCents,
                 valuedAt: valuedAt,
+                soldAt: soldAt,
+                soldCents: soldCents,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0

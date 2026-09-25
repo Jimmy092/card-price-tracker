@@ -21,7 +21,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'card_price_tracker'));
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -63,6 +63,10 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 7) {
             await m.createTable(trackedLotSnapshots);
+          }
+          if (from < 8) {
+            await m.addColumn(trackedItems, trackedItems.soldAt);
+            await m.addColumn(trackedItems, trackedItems.soldCents);
           }
         },
       );
@@ -601,6 +605,83 @@ class AppDatabase extends _$AppDatabase {
     await (delete(trackedItems)..where((t) => t.id.equals(trackedItemId))).go();
   }
 
+  Future<void> updateTrackedLot({
+    required int trackedItemId,
+    required int paidCents,
+    required DateTime purchasedAt,
+    required int quantity,
+    bool? foil,
+    String? language,
+    String? condition,
+    String notes = '',
+  }) {
+    return (update(trackedItems)..where((t) => t.id.equals(trackedItemId)))
+        .write(
+      TrackedItemsCompanion(
+        paidCents: Value(paidCents),
+        purchasedAt: Value(purchasedAt),
+        quantity: Value(quantity < 1 ? 1 : quantity),
+        foil: Value(foil),
+        language: Value(language),
+        condition: Value(condition),
+        notes: Value(notes),
+      ),
+    );
+  }
+
+  Future<void> markTrackedLotSold({
+    required int trackedItemId,
+    required int soldCents,
+    required DateTime soldAt,
+  }) {
+    return (update(trackedItems)..where((t) => t.id.equals(trackedItemId)))
+        .write(
+      TrackedItemsCompanion(
+        soldCents: Value(soldCents),
+        soldAt: Value(soldAt),
+      ),
+    );
+  }
+
+  Future<void> reopenTrackedLot(int trackedItemId) {
+    return (update(trackedItems)..where((t) => t.id.equals(trackedItemId)))
+        .write(
+      const TrackedItemsCompanion(
+        soldCents: Value(null),
+        soldAt: Value(null),
+      ),
+    );
+  }
+
+  Future<void> updateWatchlistTargets({
+    required int watchlistItemId,
+    int? targetBuyCents,
+    int? targetSellCents,
+  }) {
+    return (update(watchlistItems)..where((t) => t.id.equals(watchlistItemId)))
+        .write(
+      WatchlistItemsCompanion(
+        targetBuyCents: Value(targetBuyCents),
+        targetSellCents: Value(targetSellCents),
+      ),
+    );
+  }
+
+  Future<bool> isCardOnWatchlist(int cardId) async {
+    final row = await (select(watchlistItems)
+          ..where((t) => t.cardId.equals(cardId))
+          ..limit(1))
+        .getSingleOrNull();
+    return row != null;
+  }
+
+  Future<bool> hasOpenTrackedLot(int cardId) async {
+    final rows = await (select(trackedItems)
+          ..where((t) => t.cardId.equals(cardId) & t.soldAt.isNull()))
+        .get();
+    return rows.isNotEmpty;
+  }
+
   Future<int> startSyncRun(String source) {
     return into(syncRuns).insert(
       SyncRunsCompanion.insert(
@@ -695,6 +776,26 @@ class WatchlistRow {
     if (cm == null || spread == null || cm == 0) return null;
     return (spread / cm) * 100;
   }
+
+  int? get ctBestCents =>
+      latestCt?.ctMinZeroCents ?? latestCt?.ctMinDirectCents;
+
+  bool get buyTargetHit {
+    final target = item.targetBuyCents;
+    final ct = ctBestCents;
+    if (target == null || ct == null) return false;
+    return ct <= target;
+  }
+
+  bool get sellTargetHit {
+    final target = item.targetSellCents;
+    final ct = ctBestCents;
+    final cm = latestCm?.cmTrendCents;
+    if (target == null) return false;
+    if (ct != null && ct >= target) return true;
+    if (cm != null && cm >= target) return true;
+    return false;
+  }
 }
 
 class WatchlistEntry {
@@ -749,6 +850,25 @@ class TrackedRow {
 
   int get costBasisCents => item.paidCents * item.quantity;
 
+  bool get isSold => item.soldAt != null && item.soldCents != null;
+
+  int? get saleProceedsCents {
+    if (!isSold) return null;
+    return item.soldCents! * item.quantity;
+  }
+
+  int? get realizedPnlCents {
+    final sale = saleProceedsCents;
+    if (sale == null) return null;
+    return sale - costBasisCents;
+  }
+
+  double? get realizedPnlPct {
+    final pnl = realizedPnlCents;
+    if (pnl == null || costBasisCents == 0) return null;
+    return (pnl / costBasisCents) * 100;
+  }
+
   /// Prefer lot-specific foil-aware valuation over shared card snapshots.
   int? get cmNowCents => item.lastCmTrendCents ?? latestCm?.cmTrendCents;
   int? get ctNowCents =>
@@ -757,12 +877,14 @@ class TrackedRow {
       latestCt?.ctMinDirectCents;
 
   int? get cmValueCents {
+    if (isSold) return saleProceedsCents;
     final u = cmNowCents;
     if (u == null) return null;
     return u * item.quantity;
   }
 
   int? get ctValueCents {
+    if (isSold) return saleProceedsCents;
     final u = ctNowCents;
     if (u == null) return null;
     return u * item.quantity;
@@ -770,12 +892,14 @@ class TrackedRow {
 
   /// Market now − paid (per-copy), times quantity. Positive = up.
   int? get cmPnlCents {
+    if (isSold) return realizedPnlCents;
     final now = cmNowCents;
     if (now == null) return null;
     return (now - item.paidCents) * item.quantity;
   }
 
   int? get ctPnlCents {
+    if (isSold) return realizedPnlCents;
     final now = ctNowCents;
     if (now == null) return null;
     return (now - item.paidCents) * item.quantity;
