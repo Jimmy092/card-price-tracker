@@ -132,10 +132,10 @@ class CardmarketIngest {
   }
 
   /// Exact product-id lookup (preferred — one printing = one CM product).
+  CmPriceGuide? guideForProductId(int productId) => _guidesCache?[productId];
+
   int? trendCentsForProductId(int productId, {bool? foil}) {
-    final guides = _guidesCache;
-    if (guides == null) return null;
-    final guide = guides[productId];
+    final guide = guideForProductId(productId);
     if (guide == null) return null;
     return guide.centsFor(foil: foil).trend;
   }
@@ -488,17 +488,21 @@ class CmPriceGuide {
   int? get avg7FoilCents => _toCents(avg7Foil);
   int? get avg30FoilCents => _toCents(avg30Foil);
 
-  /// Pick foil or non-foil guide fields. When [foil] is null, use non-foil.
+  /// Pick foil or non-foil guide fields.
+  ///
+  /// When [foil] is true, only foil fields are used (no silent non-foil
+  /// fallback) so portfolio foil lots are never valued as non-foil.
+  /// When [foil] is null/false, use non-foil fields.
   ({int? trend, int? low, int? avg, int? avg7, int? avg30}) centsFor({
     bool? foil,
   }) {
     if (foil == true) {
       return (
-        trend: trendFoilCents ?? trendCents,
-        low: lowFoilCents ?? lowCents,
-        avg: avgFoilCents ?? avgCents,
-        avg7: avg7FoilCents ?? avg7Cents,
-        avg30: avg30FoilCents ?? avg30Cents,
+        trend: trendFoilCents,
+        low: lowFoilCents,
+        avg: avgFoilCents,
+        avg7: avg7FoilCents,
+        avg30: avg30FoilCents,
       );
     }
     return (

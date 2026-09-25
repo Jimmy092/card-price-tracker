@@ -220,14 +220,148 @@ class SyncService {
         onProgress: onProgress,
         onlyCardId: cardId,
       );
+      final portfolio = await syncPortfolioLots(
+        onProgress: onProgress,
+        onlyCardId: cardId,
+      );
       if (!cmResult.success) {
         return SyncOutcome.ok(
           '${ctResult.message}; Cardmarket skipped: ${cmResult.message}',
         );
       }
-      return SyncOutcome.ok('${ctResult.message}; ${cmResult.message}');
+      return SyncOutcome.ok(
+        '${ctResult.message}; ${cmResult.message}; ${portfolio.message}',
+      );
     } catch (e) {
       return SyncOutcome.ok('${ctResult.message}; Cardmarket skipped: $e');
+    }
+  }
+
+  /// Value each portfolio lot with its own foil / language / condition.
+  ///
+  /// Writes lot-specific columns so foil purchases are never priced with
+  /// non-foil guides or marketplace mins.
+  Future<SyncOutcome> syncPortfolioLots({
+    void Function(String message)? onProgress,
+    int? onlyCardId,
+  }) async {
+    final runId = await db.startSyncRun('portfolio');
+    var count = 0;
+    try {
+      final ready = await cm.ensureLookupReady();
+      final lots = (await db.allTrackedEntries())
+          .where((e) => onlyCardId == null || e.card.id == onlyCardId)
+          .toList();
+      onProgress?.call('Valuing ${lots.length} portfolio lots…');
+
+      for (final entry in lots) {
+        final card = entry.card;
+        final lot = entry.item;
+        final foilLabel = lot.foil == true
+            ? 'foil'
+            : lot.foil == false
+                ? 'non-foil'
+                : 'any';
+        onProgress?.call('Portfolio: ${card.name} ($foilLabel)');
+
+        int? cmTrend;
+        int? cmLow;
+        int? cmAvg;
+        int? cmAvg7;
+        int? cmAvg30;
+        if (ready) {
+          final productId = card.cardmarketProductId;
+          final guide = productId == null
+              ? null
+              : cm.guideForProductId(productId);
+          if (guide != null) {
+            final cents = guide.centsFor(foil: lot.foil);
+            cmTrend = cents.trend;
+            cmLow = cents.low;
+            cmAvg = cents.avg;
+            cmAvg7 = cents.avg7;
+            cmAvg30 = cents.avg30;
+          } else {
+            cmTrend = cm.trendCentsForPrinting(
+              name: card.name,
+              setName: card.expansion,
+              foil: lot.foil,
+              cardmarketId: card.cardmarketProductId,
+            );
+          }
+        }
+
+        int? ctZero;
+        int? ctDirect;
+        int? ctBest;
+        final bp = card.cardTraderBlueprintId;
+        if (bp != null) {
+          final summary = await ct.marketplaceForBlueprint(
+            bp,
+            foil: lot.foil,
+            language: lot.language,
+            minCondition: CardCondition.tryParse(lot.condition),
+          );
+          ctZero = summary.minZeroCents;
+          ctDirect = summary.minDirectCents;
+          ctBest = summary.bestPriceCents;
+
+          await db.into(db.priceSnapshots).insert(
+                PriceSnapshotsCompanion.insert(
+                  cardId: card.id,
+                  source: 'cardtrader',
+                  capturedAt: DateTime.now(),
+                  ctMinDirectCents: Value(ctDirect),
+                  ctMinZeroCents: Value(ctZero),
+                  ctListingCount: Value(summary.listingCount),
+                  ctZeroListingCount: Value(summary.zeroListingCount),
+                ),
+              );
+        }
+
+        if (cmTrend != null || cmLow != null) {
+          await db.into(db.priceSnapshots).insert(
+                PriceSnapshotsCompanion.insert(
+                  cardId: card.id,
+                  source: 'cardmarket',
+                  capturedAt: DateTime.now(),
+                  cmTrendCents: Value(cmTrend),
+                  cmLowCents: Value(cmLow),
+                  cmAvgCents: Value(cmAvg),
+                  cmAvg7Cents: Value(cmAvg7),
+                  cmAvg30Cents: Value(cmAvg30),
+                ),
+              );
+        }
+
+        await db.updateTrackedLotValuation(
+          trackedItemId: lot.id,
+          cmTrendCents: cmTrend,
+          cmAvg7Cents: cmAvg7,
+          cmAvg30Cents: cmAvg30,
+          ctBestCents: ctBest,
+          ctZeroCents: ctZero,
+          ctDirectCents: ctDirect,
+        );
+        count++;
+        await Future<void>.delayed(const Duration(milliseconds: 120));
+      }
+
+      await db.finishSyncRun(
+        runId,
+        status: 'ok',
+        message: 'Valued $count portfolio lots',
+        itemCount: count,
+      );
+      return SyncOutcome.ok('Portfolio: $count lots valued');
+    } catch (e) {
+      await db.finishSyncRun(
+        runId,
+        status: 'error',
+        message: e.toString(),
+        itemCount: count,
+      );
+      return SyncOutcome.error(e.toString());
     }
   }
 
@@ -236,7 +370,11 @@ class SyncService {
     if (!cmResult.success) return cmResult;
     final ctResult = await syncCardTraderWatchlist(onProgress: onProgress);
     if (!ctResult.success) return ctResult;
-    return SyncOutcome.ok('${cmResult.message}; ${ctResult.message}');
+    final portfolio = await syncPortfolioLots(onProgress: onProgress);
+    if (!portfolio.success) return portfolio;
+    return SyncOutcome.ok(
+      '${cmResult.message}; ${ctResult.message}; ${portfolio.message}',
+    );
   }
 }
 

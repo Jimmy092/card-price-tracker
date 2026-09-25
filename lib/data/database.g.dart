@@ -1752,6 +1752,83 @@ class $TrackedItemsTable extends TrackedItems
     requiredDuringInsert: false,
     defaultValue: const Constant(''),
   );
+  static const VerificationMeta _lastCmTrendCentsMeta = const VerificationMeta(
+    'lastCmTrendCents',
+  );
+  @override
+  late final GeneratedColumn<int> lastCmTrendCents = GeneratedColumn<int>(
+    'last_cm_trend_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastCmAvg7CentsMeta = const VerificationMeta(
+    'lastCmAvg7Cents',
+  );
+  @override
+  late final GeneratedColumn<int> lastCmAvg7Cents = GeneratedColumn<int>(
+    'last_cm_avg7_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastCmAvg30CentsMeta = const VerificationMeta(
+    'lastCmAvg30Cents',
+  );
+  @override
+  late final GeneratedColumn<int> lastCmAvg30Cents = GeneratedColumn<int>(
+    'last_cm_avg30_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastCtBestCentsMeta = const VerificationMeta(
+    'lastCtBestCents',
+  );
+  @override
+  late final GeneratedColumn<int> lastCtBestCents = GeneratedColumn<int>(
+    'last_ct_best_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastCtZeroCentsMeta = const VerificationMeta(
+    'lastCtZeroCents',
+  );
+  @override
+  late final GeneratedColumn<int> lastCtZeroCents = GeneratedColumn<int>(
+    'last_ct_zero_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _lastCtDirectCentsMeta = const VerificationMeta(
+    'lastCtDirectCents',
+  );
+  @override
+  late final GeneratedColumn<int> lastCtDirectCents = GeneratedColumn<int>(
+    'last_ct_direct_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _valuedAtMeta = const VerificationMeta(
+    'valuedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> valuedAt = GeneratedColumn<DateTime>(
+    'valued_at',
+    aliasedName,
+    true,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -1775,6 +1852,13 @@ class $TrackedItemsTable extends TrackedItems
     language,
     condition,
     notes,
+    lastCmTrendCents,
+    lastCmAvg7Cents,
+    lastCmAvg30Cents,
+    lastCtBestCents,
+    lastCtZeroCents,
+    lastCtDirectCents,
+    valuedAt,
     createdAt,
   ];
   @override
@@ -1849,6 +1933,66 @@ class $TrackedItemsTable extends TrackedItems
         notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
       );
     }
+    if (data.containsKey('last_cm_trend_cents')) {
+      context.handle(
+        _lastCmTrendCentsMeta,
+        lastCmTrendCents.isAcceptableOrUnknown(
+          data['last_cm_trend_cents']!,
+          _lastCmTrendCentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_cm_avg7_cents')) {
+      context.handle(
+        _lastCmAvg7CentsMeta,
+        lastCmAvg7Cents.isAcceptableOrUnknown(
+          data['last_cm_avg7_cents']!,
+          _lastCmAvg7CentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_cm_avg30_cents')) {
+      context.handle(
+        _lastCmAvg30CentsMeta,
+        lastCmAvg30Cents.isAcceptableOrUnknown(
+          data['last_cm_avg30_cents']!,
+          _lastCmAvg30CentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_ct_best_cents')) {
+      context.handle(
+        _lastCtBestCentsMeta,
+        lastCtBestCents.isAcceptableOrUnknown(
+          data['last_ct_best_cents']!,
+          _lastCtBestCentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_ct_zero_cents')) {
+      context.handle(
+        _lastCtZeroCentsMeta,
+        lastCtZeroCents.isAcceptableOrUnknown(
+          data['last_ct_zero_cents']!,
+          _lastCtZeroCentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('last_ct_direct_cents')) {
+      context.handle(
+        _lastCtDirectCentsMeta,
+        lastCtDirectCents.isAcceptableOrUnknown(
+          data['last_ct_direct_cents']!,
+          _lastCtDirectCentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('valued_at')) {
+      context.handle(
+        _valuedAtMeta,
+        valuedAt.isAcceptableOrUnknown(data['valued_at']!, _valuedAtMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -1900,6 +2044,34 @@ class $TrackedItemsTable extends TrackedItems
         DriftSqlType.string,
         data['${effectivePrefix}notes'],
       )!,
+      lastCmTrendCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_cm_trend_cents'],
+      ),
+      lastCmAvg7Cents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_cm_avg7_cents'],
+      ),
+      lastCmAvg30Cents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_cm_avg30_cents'],
+      ),
+      lastCtBestCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_ct_best_cents'],
+      ),
+      lastCtZeroCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_ct_zero_cents'],
+      ),
+      lastCtDirectCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}last_ct_direct_cents'],
+      ),
+      valuedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}valued_at'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -1931,6 +2103,17 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
   /// Owned condition label (e.g. `Near Mint`), null = unspecified.
   final String? condition;
   final String notes;
+
+  /// Last foil-aware CM trend (EUR cents) for this lot.
+  final int? lastCmTrendCents;
+  final int? lastCmAvg7Cents;
+  final int? lastCmAvg30Cents;
+
+  /// Last foil/language/condition-aware CT best (Zero else Direct).
+  final int? lastCtBestCents;
+  final int? lastCtZeroCents;
+  final int? lastCtDirectCents;
+  final DateTime? valuedAt;
   final DateTime createdAt;
   const TrackedItem({
     required this.id,
@@ -1942,6 +2125,13 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
     this.language,
     this.condition,
     required this.notes,
+    this.lastCmTrendCents,
+    this.lastCmAvg7Cents,
+    this.lastCmAvg30Cents,
+    this.lastCtBestCents,
+    this.lastCtZeroCents,
+    this.lastCtDirectCents,
+    this.valuedAt,
     required this.createdAt,
   });
   @override
@@ -1962,6 +2152,27 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
       map['condition'] = Variable<String>(condition);
     }
     map['notes'] = Variable<String>(notes);
+    if (!nullToAbsent || lastCmTrendCents != null) {
+      map['last_cm_trend_cents'] = Variable<int>(lastCmTrendCents);
+    }
+    if (!nullToAbsent || lastCmAvg7Cents != null) {
+      map['last_cm_avg7_cents'] = Variable<int>(lastCmAvg7Cents);
+    }
+    if (!nullToAbsent || lastCmAvg30Cents != null) {
+      map['last_cm_avg30_cents'] = Variable<int>(lastCmAvg30Cents);
+    }
+    if (!nullToAbsent || lastCtBestCents != null) {
+      map['last_ct_best_cents'] = Variable<int>(lastCtBestCents);
+    }
+    if (!nullToAbsent || lastCtZeroCents != null) {
+      map['last_ct_zero_cents'] = Variable<int>(lastCtZeroCents);
+    }
+    if (!nullToAbsent || lastCtDirectCents != null) {
+      map['last_ct_direct_cents'] = Variable<int>(lastCtDirectCents);
+    }
+    if (!nullToAbsent || valuedAt != null) {
+      map['valued_at'] = Variable<DateTime>(valuedAt);
+    }
     map['created_at'] = Variable<DateTime>(createdAt);
     return map;
   }
@@ -1981,6 +2192,27 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
           ? const Value.absent()
           : Value(condition),
       notes: Value(notes),
+      lastCmTrendCents: lastCmTrendCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastCmTrendCents),
+      lastCmAvg7Cents: lastCmAvg7Cents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastCmAvg7Cents),
+      lastCmAvg30Cents: lastCmAvg30Cents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastCmAvg30Cents),
+      lastCtBestCents: lastCtBestCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastCtBestCents),
+      lastCtZeroCents: lastCtZeroCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastCtZeroCents),
+      lastCtDirectCents: lastCtDirectCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(lastCtDirectCents),
+      valuedAt: valuedAt == null && nullToAbsent
+          ? const Value.absent()
+          : Value(valuedAt),
       createdAt: Value(createdAt),
     );
   }
@@ -2000,6 +2232,13 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
       language: serializer.fromJson<String?>(json['language']),
       condition: serializer.fromJson<String?>(json['condition']),
       notes: serializer.fromJson<String>(json['notes']),
+      lastCmTrendCents: serializer.fromJson<int?>(json['lastCmTrendCents']),
+      lastCmAvg7Cents: serializer.fromJson<int?>(json['lastCmAvg7Cents']),
+      lastCmAvg30Cents: serializer.fromJson<int?>(json['lastCmAvg30Cents']),
+      lastCtBestCents: serializer.fromJson<int?>(json['lastCtBestCents']),
+      lastCtZeroCents: serializer.fromJson<int?>(json['lastCtZeroCents']),
+      lastCtDirectCents: serializer.fromJson<int?>(json['lastCtDirectCents']),
+      valuedAt: serializer.fromJson<DateTime?>(json['valuedAt']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
     );
   }
@@ -2016,6 +2255,13 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
       'language': serializer.toJson<String?>(language),
       'condition': serializer.toJson<String?>(condition),
       'notes': serializer.toJson<String>(notes),
+      'lastCmTrendCents': serializer.toJson<int?>(lastCmTrendCents),
+      'lastCmAvg7Cents': serializer.toJson<int?>(lastCmAvg7Cents),
+      'lastCmAvg30Cents': serializer.toJson<int?>(lastCmAvg30Cents),
+      'lastCtBestCents': serializer.toJson<int?>(lastCtBestCents),
+      'lastCtZeroCents': serializer.toJson<int?>(lastCtZeroCents),
+      'lastCtDirectCents': serializer.toJson<int?>(lastCtDirectCents),
+      'valuedAt': serializer.toJson<DateTime?>(valuedAt),
       'createdAt': serializer.toJson<DateTime>(createdAt),
     };
   }
@@ -2030,6 +2276,13 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
     Value<String?> language = const Value.absent(),
     Value<String?> condition = const Value.absent(),
     String? notes,
+    Value<int?> lastCmTrendCents = const Value.absent(),
+    Value<int?> lastCmAvg7Cents = const Value.absent(),
+    Value<int?> lastCmAvg30Cents = const Value.absent(),
+    Value<int?> lastCtBestCents = const Value.absent(),
+    Value<int?> lastCtZeroCents = const Value.absent(),
+    Value<int?> lastCtDirectCents = const Value.absent(),
+    Value<DateTime?> valuedAt = const Value.absent(),
     DateTime? createdAt,
   }) => TrackedItem(
     id: id ?? this.id,
@@ -2041,6 +2294,25 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
     language: language.present ? language.value : this.language,
     condition: condition.present ? condition.value : this.condition,
     notes: notes ?? this.notes,
+    lastCmTrendCents: lastCmTrendCents.present
+        ? lastCmTrendCents.value
+        : this.lastCmTrendCents,
+    lastCmAvg7Cents: lastCmAvg7Cents.present
+        ? lastCmAvg7Cents.value
+        : this.lastCmAvg7Cents,
+    lastCmAvg30Cents: lastCmAvg30Cents.present
+        ? lastCmAvg30Cents.value
+        : this.lastCmAvg30Cents,
+    lastCtBestCents: lastCtBestCents.present
+        ? lastCtBestCents.value
+        : this.lastCtBestCents,
+    lastCtZeroCents: lastCtZeroCents.present
+        ? lastCtZeroCents.value
+        : this.lastCtZeroCents,
+    lastCtDirectCents: lastCtDirectCents.present
+        ? lastCtDirectCents.value
+        : this.lastCtDirectCents,
+    valuedAt: valuedAt.present ? valuedAt.value : this.valuedAt,
     createdAt: createdAt ?? this.createdAt,
   );
   TrackedItem copyWithCompanion(TrackedItemsCompanion data) {
@@ -2056,6 +2328,25 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
       language: data.language.present ? data.language.value : this.language,
       condition: data.condition.present ? data.condition.value : this.condition,
       notes: data.notes.present ? data.notes.value : this.notes,
+      lastCmTrendCents: data.lastCmTrendCents.present
+          ? data.lastCmTrendCents.value
+          : this.lastCmTrendCents,
+      lastCmAvg7Cents: data.lastCmAvg7Cents.present
+          ? data.lastCmAvg7Cents.value
+          : this.lastCmAvg7Cents,
+      lastCmAvg30Cents: data.lastCmAvg30Cents.present
+          ? data.lastCmAvg30Cents.value
+          : this.lastCmAvg30Cents,
+      lastCtBestCents: data.lastCtBestCents.present
+          ? data.lastCtBestCents.value
+          : this.lastCtBestCents,
+      lastCtZeroCents: data.lastCtZeroCents.present
+          ? data.lastCtZeroCents.value
+          : this.lastCtZeroCents,
+      lastCtDirectCents: data.lastCtDirectCents.present
+          ? data.lastCtDirectCents.value
+          : this.lastCtDirectCents,
+      valuedAt: data.valuedAt.present ? data.valuedAt.value : this.valuedAt,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
     );
   }
@@ -2072,6 +2363,13 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
           ..write('language: $language, ')
           ..write('condition: $condition, ')
           ..write('notes: $notes, ')
+          ..write('lastCmTrendCents: $lastCmTrendCents, ')
+          ..write('lastCmAvg7Cents: $lastCmAvg7Cents, ')
+          ..write('lastCmAvg30Cents: $lastCmAvg30Cents, ')
+          ..write('lastCtBestCents: $lastCtBestCents, ')
+          ..write('lastCtZeroCents: $lastCtZeroCents, ')
+          ..write('lastCtDirectCents: $lastCtDirectCents, ')
+          ..write('valuedAt: $valuedAt, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -2088,6 +2386,13 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
     language,
     condition,
     notes,
+    lastCmTrendCents,
+    lastCmAvg7Cents,
+    lastCmAvg30Cents,
+    lastCtBestCents,
+    lastCtZeroCents,
+    lastCtDirectCents,
+    valuedAt,
     createdAt,
   );
   @override
@@ -2103,6 +2408,13 @@ class TrackedItem extends DataClass implements Insertable<TrackedItem> {
           other.language == this.language &&
           other.condition == this.condition &&
           other.notes == this.notes &&
+          other.lastCmTrendCents == this.lastCmTrendCents &&
+          other.lastCmAvg7Cents == this.lastCmAvg7Cents &&
+          other.lastCmAvg30Cents == this.lastCmAvg30Cents &&
+          other.lastCtBestCents == this.lastCtBestCents &&
+          other.lastCtZeroCents == this.lastCtZeroCents &&
+          other.lastCtDirectCents == this.lastCtDirectCents &&
+          other.valuedAt == this.valuedAt &&
           other.createdAt == this.createdAt);
 }
 
@@ -2116,6 +2428,13 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
   final Value<String?> language;
   final Value<String?> condition;
   final Value<String> notes;
+  final Value<int?> lastCmTrendCents;
+  final Value<int?> lastCmAvg7Cents;
+  final Value<int?> lastCmAvg30Cents;
+  final Value<int?> lastCtBestCents;
+  final Value<int?> lastCtZeroCents;
+  final Value<int?> lastCtDirectCents;
+  final Value<DateTime?> valuedAt;
   final Value<DateTime> createdAt;
   const TrackedItemsCompanion({
     this.id = const Value.absent(),
@@ -2127,6 +2446,13 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
     this.language = const Value.absent(),
     this.condition = const Value.absent(),
     this.notes = const Value.absent(),
+    this.lastCmTrendCents = const Value.absent(),
+    this.lastCmAvg7Cents = const Value.absent(),
+    this.lastCmAvg30Cents = const Value.absent(),
+    this.lastCtBestCents = const Value.absent(),
+    this.lastCtZeroCents = const Value.absent(),
+    this.lastCtDirectCents = const Value.absent(),
+    this.valuedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
   });
   TrackedItemsCompanion.insert({
@@ -2139,6 +2465,13 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
     this.language = const Value.absent(),
     this.condition = const Value.absent(),
     this.notes = const Value.absent(),
+    this.lastCmTrendCents = const Value.absent(),
+    this.lastCmAvg7Cents = const Value.absent(),
+    this.lastCmAvg30Cents = const Value.absent(),
+    this.lastCtBestCents = const Value.absent(),
+    this.lastCtZeroCents = const Value.absent(),
+    this.lastCtDirectCents = const Value.absent(),
+    this.valuedAt = const Value.absent(),
     this.createdAt = const Value.absent(),
   }) : cardId = Value(cardId),
        paidCents = Value(paidCents),
@@ -2153,6 +2486,13 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
     Expression<String>? language,
     Expression<String>? condition,
     Expression<String>? notes,
+    Expression<int>? lastCmTrendCents,
+    Expression<int>? lastCmAvg7Cents,
+    Expression<int>? lastCmAvg30Cents,
+    Expression<int>? lastCtBestCents,
+    Expression<int>? lastCtZeroCents,
+    Expression<int>? lastCtDirectCents,
+    Expression<DateTime>? valuedAt,
     Expression<DateTime>? createdAt,
   }) {
     return RawValuesInsertable({
@@ -2165,6 +2505,13 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
       if (language != null) 'language': language,
       if (condition != null) 'condition': condition,
       if (notes != null) 'notes': notes,
+      if (lastCmTrendCents != null) 'last_cm_trend_cents': lastCmTrendCents,
+      if (lastCmAvg7Cents != null) 'last_cm_avg7_cents': lastCmAvg7Cents,
+      if (lastCmAvg30Cents != null) 'last_cm_avg30_cents': lastCmAvg30Cents,
+      if (lastCtBestCents != null) 'last_ct_best_cents': lastCtBestCents,
+      if (lastCtZeroCents != null) 'last_ct_zero_cents': lastCtZeroCents,
+      if (lastCtDirectCents != null) 'last_ct_direct_cents': lastCtDirectCents,
+      if (valuedAt != null) 'valued_at': valuedAt,
       if (createdAt != null) 'created_at': createdAt,
     });
   }
@@ -2179,6 +2526,13 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
     Value<String?>? language,
     Value<String?>? condition,
     Value<String>? notes,
+    Value<int?>? lastCmTrendCents,
+    Value<int?>? lastCmAvg7Cents,
+    Value<int?>? lastCmAvg30Cents,
+    Value<int?>? lastCtBestCents,
+    Value<int?>? lastCtZeroCents,
+    Value<int?>? lastCtDirectCents,
+    Value<DateTime?>? valuedAt,
     Value<DateTime>? createdAt,
   }) {
     return TrackedItemsCompanion(
@@ -2191,6 +2545,13 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
       language: language ?? this.language,
       condition: condition ?? this.condition,
       notes: notes ?? this.notes,
+      lastCmTrendCents: lastCmTrendCents ?? this.lastCmTrendCents,
+      lastCmAvg7Cents: lastCmAvg7Cents ?? this.lastCmAvg7Cents,
+      lastCmAvg30Cents: lastCmAvg30Cents ?? this.lastCmAvg30Cents,
+      lastCtBestCents: lastCtBestCents ?? this.lastCtBestCents,
+      lastCtZeroCents: lastCtZeroCents ?? this.lastCtZeroCents,
+      lastCtDirectCents: lastCtDirectCents ?? this.lastCtDirectCents,
+      valuedAt: valuedAt ?? this.valuedAt,
       createdAt: createdAt ?? this.createdAt,
     );
   }
@@ -2225,6 +2586,27 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
     if (notes.present) {
       map['notes'] = Variable<String>(notes.value);
     }
+    if (lastCmTrendCents.present) {
+      map['last_cm_trend_cents'] = Variable<int>(lastCmTrendCents.value);
+    }
+    if (lastCmAvg7Cents.present) {
+      map['last_cm_avg7_cents'] = Variable<int>(lastCmAvg7Cents.value);
+    }
+    if (lastCmAvg30Cents.present) {
+      map['last_cm_avg30_cents'] = Variable<int>(lastCmAvg30Cents.value);
+    }
+    if (lastCtBestCents.present) {
+      map['last_ct_best_cents'] = Variable<int>(lastCtBestCents.value);
+    }
+    if (lastCtZeroCents.present) {
+      map['last_ct_zero_cents'] = Variable<int>(lastCtZeroCents.value);
+    }
+    if (lastCtDirectCents.present) {
+      map['last_ct_direct_cents'] = Variable<int>(lastCtDirectCents.value);
+    }
+    if (valuedAt.present) {
+      map['valued_at'] = Variable<DateTime>(valuedAt.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -2243,6 +2625,13 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
           ..write('language: $language, ')
           ..write('condition: $condition, ')
           ..write('notes: $notes, ')
+          ..write('lastCmTrendCents: $lastCmTrendCents, ')
+          ..write('lastCmAvg7Cents: $lastCmAvg7Cents, ')
+          ..write('lastCmAvg30Cents: $lastCmAvg30Cents, ')
+          ..write('lastCtBestCents: $lastCtBestCents, ')
+          ..write('lastCtZeroCents: $lastCtZeroCents, ')
+          ..write('lastCtDirectCents: $lastCtDirectCents, ')
+          ..write('valuedAt: $valuedAt, ')
           ..write('createdAt: $createdAt')
           ..write(')'))
         .toString();
@@ -4947,6 +5336,13 @@ typedef $$TrackedItemsTableCreateCompanionBuilder =
       Value<String?> language,
       Value<String?> condition,
       Value<String> notes,
+      Value<int?> lastCmTrendCents,
+      Value<int?> lastCmAvg7Cents,
+      Value<int?> lastCmAvg30Cents,
+      Value<int?> lastCtBestCents,
+      Value<int?> lastCtZeroCents,
+      Value<int?> lastCtDirectCents,
+      Value<DateTime?> valuedAt,
       Value<DateTime> createdAt,
     });
 typedef $$TrackedItemsTableUpdateCompanionBuilder =
@@ -4960,6 +5356,13 @@ typedef $$TrackedItemsTableUpdateCompanionBuilder =
       Value<String?> language,
       Value<String?> condition,
       Value<String> notes,
+      Value<int?> lastCmTrendCents,
+      Value<int?> lastCmAvg7Cents,
+      Value<int?> lastCmAvg30Cents,
+      Value<int?> lastCtBestCents,
+      Value<int?> lastCtZeroCents,
+      Value<int?> lastCtDirectCents,
+      Value<DateTime?> valuedAt,
       Value<DateTime> createdAt,
     });
 
@@ -5031,6 +5434,41 @@ class $$TrackedItemsTableFilterComposer
 
   ColumnFilters<String> get notes => $composableBuilder(
     column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastCmTrendCents => $composableBuilder(
+    column: $table.lastCmTrendCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastCmAvg7Cents => $composableBuilder(
+    column: $table.lastCmAvg7Cents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastCmAvg30Cents => $composableBuilder(
+    column: $table.lastCmAvg30Cents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastCtBestCents => $composableBuilder(
+    column: $table.lastCtBestCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastCtZeroCents => $composableBuilder(
+    column: $table.lastCtZeroCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get lastCtDirectCents => $composableBuilder(
+    column: $table.lastCtDirectCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get valuedAt => $composableBuilder(
+    column: $table.valuedAt,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -5112,6 +5550,41 @@ class $$TrackedItemsTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<int> get lastCmTrendCents => $composableBuilder(
+    column: $table.lastCmTrendCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastCmAvg7Cents => $composableBuilder(
+    column: $table.lastCmAvg7Cents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastCmAvg30Cents => $composableBuilder(
+    column: $table.lastCmAvg30Cents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastCtBestCents => $composableBuilder(
+    column: $table.lastCtBestCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastCtZeroCents => $composableBuilder(
+    column: $table.lastCtZeroCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get lastCtDirectCents => $composableBuilder(
+    column: $table.lastCtDirectCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get valuedAt => $composableBuilder(
+    column: $table.valuedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -5175,6 +5648,39 @@ class $$TrackedItemsTableAnnotationComposer
 
   GeneratedColumn<String> get notes =>
       $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<int> get lastCmTrendCents => $composableBuilder(
+    column: $table.lastCmTrendCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastCmAvg7Cents => $composableBuilder(
+    column: $table.lastCmAvg7Cents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastCmAvg30Cents => $composableBuilder(
+    column: $table.lastCmAvg30Cents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastCtBestCents => $composableBuilder(
+    column: $table.lastCtBestCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastCtZeroCents => $composableBuilder(
+    column: $table.lastCtZeroCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get lastCtDirectCents => $composableBuilder(
+    column: $table.lastCtDirectCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get valuedAt =>
+      $composableBuilder(column: $table.valuedAt, builder: (column) => column);
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
@@ -5240,6 +5746,13 @@ class $$TrackedItemsTableTableManager
                 Value<String?> language = const Value.absent(),
                 Value<String?> condition = const Value.absent(),
                 Value<String> notes = const Value.absent(),
+                Value<int?> lastCmTrendCents = const Value.absent(),
+                Value<int?> lastCmAvg7Cents = const Value.absent(),
+                Value<int?> lastCmAvg30Cents = const Value.absent(),
+                Value<int?> lastCtBestCents = const Value.absent(),
+                Value<int?> lastCtZeroCents = const Value.absent(),
+                Value<int?> lastCtDirectCents = const Value.absent(),
+                Value<DateTime?> valuedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => TrackedItemsCompanion(
                 id: id,
@@ -5251,6 +5764,13 @@ class $$TrackedItemsTableTableManager
                 language: language,
                 condition: condition,
                 notes: notes,
+                lastCmTrendCents: lastCmTrendCents,
+                lastCmAvg7Cents: lastCmAvg7Cents,
+                lastCmAvg30Cents: lastCmAvg30Cents,
+                lastCtBestCents: lastCtBestCents,
+                lastCtZeroCents: lastCtZeroCents,
+                lastCtDirectCents: lastCtDirectCents,
+                valuedAt: valuedAt,
                 createdAt: createdAt,
               ),
           createCompanionCallback:
@@ -5264,6 +5784,13 @@ class $$TrackedItemsTableTableManager
                 Value<String?> language = const Value.absent(),
                 Value<String?> condition = const Value.absent(),
                 Value<String> notes = const Value.absent(),
+                Value<int?> lastCmTrendCents = const Value.absent(),
+                Value<int?> lastCmAvg7Cents = const Value.absent(),
+                Value<int?> lastCmAvg30Cents = const Value.absent(),
+                Value<int?> lastCtBestCents = const Value.absent(),
+                Value<int?> lastCtZeroCents = const Value.absent(),
+                Value<int?> lastCtDirectCents = const Value.absent(),
+                Value<DateTime?> valuedAt = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
               }) => TrackedItemsCompanion.insert(
                 id: id,
@@ -5275,6 +5802,13 @@ class $$TrackedItemsTableTableManager
                 language: language,
                 condition: condition,
                 notes: notes,
+                lastCmTrendCents: lastCmTrendCents,
+                lastCmAvg7Cents: lastCmAvg7Cents,
+                lastCmAvg30Cents: lastCmAvg30Cents,
+                lastCtBestCents: lastCtBestCents,
+                lastCtZeroCents: lastCtZeroCents,
+                lastCtDirectCents: lastCtDirectCents,
+                valuedAt: valuedAt,
                 createdAt: createdAt,
               ),
           withReferenceMapper: (p0) => p0

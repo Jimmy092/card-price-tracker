@@ -20,7 +20,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'card_price_tracker'));
 
   @override
-  int get schemaVersion => 5;
+  int get schemaVersion => 6;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -50,6 +50,15 @@ class AppDatabase extends _$AppDatabase {
           }
           if (from < 5) {
             await m.createTable(trackedItems);
+          }
+          if (from < 6) {
+            await m.addColumn(trackedItems, trackedItems.lastCmTrendCents);
+            await m.addColumn(trackedItems, trackedItems.lastCmAvg7Cents);
+            await m.addColumn(trackedItems, trackedItems.lastCmAvg30Cents);
+            await m.addColumn(trackedItems, trackedItems.lastCtBestCents);
+            await m.addColumn(trackedItems, trackedItems.lastCtZeroCents);
+            await m.addColumn(trackedItems, trackedItems.lastCtDirectCents);
+            await m.addColumn(trackedItems, trackedItems.valuedAt);
           }
         },
       );
@@ -389,7 +398,10 @@ class AppDatabase extends _$AppDatabase {
   }
 
   /// Cards that need CM/CT price sync (watchlist ∪ tracking).
-  /// Watchlist listing filters win when the same card is on both lists.
+  ///
+  /// When the same printing is on both lists, prefer an **explicit** finish
+  /// (foil/non-foil) from a portfolio lot over a watchlist "any" filter, so
+  /// portfolio foil lots are not valued with non-foil guides.
   Future<List<PriceSyncTarget>> allPriceSyncTargets({int? onlyCardId}) async {
     final byCard = <int, PriceSyncTarget>{};
 
@@ -407,20 +419,58 @@ class AppDatabase extends _$AppDatabase {
 
     for (final e in await allTrackedEntries()) {
       if (onlyCardId != null && e.card.id != onlyCardId) continue;
-      byCard.putIfAbsent(
-        e.card.id,
-        () => PriceSyncTarget(
+      final existing = byCard[e.card.id];
+      if (existing == null) {
+        byCard[e.card.id] = PriceSyncTarget(
           card: e.card,
           foil: e.item.foil,
           language: e.item.language,
           minCondition: e.item.condition,
           sellerName: null,
           minSellerQuantity: null,
-        ),
+        );
+        continue;
+      }
+      // Portfolio explicit foil/language/condition fills watchlist "any" gaps.
+      byCard[e.card.id] = PriceSyncTarget(
+        card: e.card,
+        foil: existing.foil ?? e.item.foil,
+        language: (existing.language == null || existing.language!.isEmpty)
+            ? e.item.language
+            : existing.language,
+        minCondition:
+            (existing.minCondition == null || existing.minCondition!.isEmpty)
+                ? e.item.condition
+                : existing.minCondition,
+        sellerName: existing.sellerName,
+        minSellerQuantity: existing.minSellerQuantity,
       );
     }
 
     return byCard.values.toList();
+  }
+
+  Future<void> updateTrackedLotValuation({
+    required int trackedItemId,
+    int? cmTrendCents,
+    int? cmAvg7Cents,
+    int? cmAvg30Cents,
+    int? ctBestCents,
+    int? ctZeroCents,
+    int? ctDirectCents,
+  }) {
+    return (update(trackedItems)..where((t) => t.id.equals(trackedItemId)))
+        .write(
+      TrackedItemsCompanion(
+        lastCmTrendCents: Value(cmTrendCents),
+        lastCmAvg7Cents: Value(cmAvg7Cents),
+        lastCmAvg30Cents: Value(cmAvg30Cents),
+        lastCtBestCents: Value(ctBestCents),
+        lastCtZeroCents: Value(ctZeroCents),
+        lastCtDirectCents: Value(ctDirectCents),
+        valuedAt: Value(DateTime.now()),
+      ),
+    );
   }
 
   /// Ensure a [Cards] row exists, then insert a purchase lot.
@@ -645,9 +695,12 @@ class TrackedRow {
 
   int get costBasisCents => item.paidCents * item.quantity;
 
-  int? get cmNowCents => latestCm?.cmTrendCents;
+  /// Prefer lot-specific foil-aware valuation over shared card snapshots.
+  int? get cmNowCents => item.lastCmTrendCents ?? latestCm?.cmTrendCents;
   int? get ctNowCents =>
-      latestCt?.ctMinZeroCents ?? latestCt?.ctMinDirectCents;
+      item.lastCtBestCents ??
+      latestCt?.ctMinZeroCents ??
+      latestCt?.ctMinDirectCents;
 
   int? get cmValueCents {
     final u = cmNowCents;

@@ -14,6 +14,9 @@ class MonthPriceSparkline extends StatelessWidget {
     required this.ctSnapshots,
     this.height = 44,
     this.latestCm,
+    this.cmTrendOverrideCents,
+    this.cmAvg7OverrideCents,
+    this.cmAvg30OverrideCents,
   });
 
   final List<PriceSnapshot> cmSnapshots;
@@ -21,6 +24,10 @@ class MonthPriceSparkline extends StatelessWidget {
   /// Used to synthesize a CM month slope from avg30 → avg7 → trend when
   /// local sync history is still thin.
   final PriceSnapshot? latestCm;
+  /// Foil-aware CM values from a portfolio lot (preferred over [latestCm]).
+  final int? cmTrendOverrideCents;
+  final int? cmAvg7OverrideCents;
+  final int? cmAvg30OverrideCents;
   final double height;
 
   static const window = Duration(days: 30);
@@ -31,6 +38,9 @@ class MonthPriceSparkline extends StatelessWidget {
       cmSnapshots: cmSnapshots,
       ctSnapshots: ctSnapshots,
       latestCm: latestCm,
+      cmTrendOverrideCents: cmTrendOverrideCents,
+      cmAvg7OverrideCents: cmAvg7OverrideCents,
+      cmAvg30OverrideCents: cmAvg30OverrideCents,
     );
     if (!series.hasAny) {
       return SizedBox(
@@ -209,6 +219,9 @@ class MonthPriceSeries {
     required List<PriceSnapshot> cmSnapshots,
     required List<PriceSnapshot> ctSnapshots,
     PriceSnapshot? latestCm,
+    int? cmTrendOverrideCents,
+    int? cmAvg7OverrideCents,
+    int? cmAvg30OverrideCents,
     DateTime? now,
   }) {
     final end = now ?? DateTime.now();
@@ -238,8 +251,20 @@ class MonthPriceSeries {
 
     // Synthesize CM month slope from guide rolling averages when history is thin.
     if (cmSpots.length < 2) {
-      final guide = latestCm ?? (cmSnapshots.isEmpty ? null : cmSnapshots.last);
-      final synthetic = _syntheticCmSpots(guide, start, end, xOf);
+      final synthetic = _syntheticCmSpots(
+        trendCents: cmTrendOverrideCents ??
+            latestCm?.cmTrendCents ??
+            (cmSnapshots.isEmpty ? null : cmSnapshots.last.cmTrendCents),
+        avg7Cents: cmAvg7OverrideCents ??
+            latestCm?.cmAvg7Cents ??
+            (cmSnapshots.isEmpty ? null : cmSnapshots.last.cmAvg7Cents),
+        avg30Cents: cmAvg30OverrideCents ??
+            latestCm?.cmAvg30Cents ??
+            (cmSnapshots.isEmpty ? null : cmSnapshots.last.cmAvg30Cents),
+        start: start,
+        end: end,
+        xOf: xOf,
+      );
       if (synthetic.length >= cmSpots.length) {
         cmSpots = synthetic;
       }
@@ -288,22 +313,22 @@ class MonthPriceSeries {
     );
   }
 
-  static List<FlSpot> _syntheticCmSpots(
-    PriceSnapshot? guide,
-    DateTime start,
-    DateTime end,
-    double Function(DateTime) xOf,
-  ) {
-    if (guide == null) return const [];
-    final trend = guide.cmTrendCents;
-    if (trend == null) return const [];
-    final avg7 = guide.cmAvg7Cents ?? trend;
-    final avg30 = guide.cmAvg30Cents ?? avg7;
+  static List<FlSpot> _syntheticCmSpots({
+    required int? trendCents,
+    required int? avg7Cents,
+    required int? avg30Cents,
+    required DateTime start,
+    required DateTime end,
+    required double Function(DateTime) xOf,
+  }) {
+    if (trendCents == null) return const [];
+    final avg7 = avg7Cents ?? trendCents;
+    final avg30 = avg30Cents ?? avg7;
 
     final points = <FlSpot>[
       FlSpot(xOf(start), avg30 / 100.0),
       FlSpot(xOf(end.subtract(const Duration(days: 7))), avg7 / 100.0),
-      FlSpot(xOf(end), trend / 100.0),
+      FlSpot(xOf(end), trendCents / 100.0),
     ];
     return _dedupeSpots(points);
   }

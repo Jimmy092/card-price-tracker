@@ -58,6 +58,15 @@ class TrackedItems extends Table {
   /// Owned condition label (e.g. `Near Mint`), null = unspecified.
   TextColumn get condition => text().nullable()();
   TextColumn get notes => text().withDefault(const Constant(''))();
+  /// Last foil-aware CM trend (EUR cents) for this lot.
+  IntColumn get lastCmTrendCents => integer().nullable()();
+  IntColumn get lastCmAvg7Cents => integer().nullable()();
+  IntColumn get lastCmAvg30Cents => integer().nullable()();
+  /// Last foil/language/condition-aware CT best (Zero else Direct).
+  IntColumn get lastCtBestCents => integer().nullable()();
+  IntColumn get lastCtZeroCents => integer().nullable()();
+  IntColumn get lastCtDirectCents => integer().nullable()();
+  DateTimeColumn get valuedAt => dateTime().nullable()();
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 

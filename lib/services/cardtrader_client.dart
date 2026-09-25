@@ -370,6 +370,26 @@ class CardTraderClient {
       }
     }
 
+    // Belt-and-suspenders: CT sometimes ignores foil query — filter locally.
+    if (foil == true) {
+      listings = listings.where((l) => l.foil == true).toList();
+    } else if (foil == false) {
+      listings = listings.where((l) => l.foil != true).toList();
+    }
+
+    // Belt-and-suspenders: CT sometimes ignores language query.
+    if (language != null && language.isNotEmpty) {
+      final lang = language.toLowerCase();
+      final tagged = listings
+          .where((l) => (l.language ?? '').trim().isNotEmpty)
+          .toList();
+      if (tagged.isNotEmpty) {
+        listings = tagged
+            .where((l) => (l.language ?? '').toLowerCase() == lang)
+            .toList();
+      }
+    }
+
     if (minCondition != null) {
       listings = listings
           .where((l) => CardCondition.meetsMinimum(l.condition, minCondition))
