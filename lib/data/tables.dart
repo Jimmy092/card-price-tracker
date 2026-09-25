@@ -70,6 +70,18 @@ class TrackedItems extends Table {
   DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+/// Per-lot price samples so foil/language CT history stays separate from
+/// shared card snapshots (and can drive portfolio 30d CT charts).
+class TrackedLotSnapshots extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get trackedItemId => integer().references(TrackedItems, #id)();
+  DateTimeColumn get capturedAt => dateTime()();
+  IntColumn get cmTrendCents => integer().nullable()();
+  IntColumn get cmAvg7Cents => integer().nullable()();
+  IntColumn get cmAvg30Cents => integer().nullable()();
+  IntColumn get ctBestCents => integer().nullable()();
+}
+
 /// Never blend Cardmarket and CardTrader values in one row.
 class PriceSnapshots extends Table {
   IntColumn get id => integer().autoIncrement()();

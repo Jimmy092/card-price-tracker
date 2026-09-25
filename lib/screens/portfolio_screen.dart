@@ -384,6 +384,12 @@ class _TrackedCard extends StatelessWidget {
                     cmTrendOverrideCents: row.item.lastCmTrendCents,
                     cmAvg7OverrideCents: row.item.lastCmAvg7Cents,
                     cmAvg30OverrideCents: row.item.lastCmAvg30Cents,
+                    ctBestOverrideCents: row.ctNowCents,
+                    ctHistoryCents: [
+                      for (final s in row.lotSnapshots)
+                        if (s.ctBestCents != null) (s.capturedAt, s.ctBestCents!),
+                    ],
+                    preferCmGuideSlope: true,
                   ),
                 ],
               ],

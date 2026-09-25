@@ -343,6 +343,13 @@ class SyncService {
           ctZeroCents: ctZero,
           ctDirectCents: ctDirect,
         );
+        await db.insertTrackedLotSnapshot(
+          trackedItemId: lot.id,
+          cmTrendCents: cmTrend,
+          cmAvg7Cents: cmAvg7,
+          cmAvg30Cents: cmAvg30,
+          ctBestCents: ctBest,
+        );
         count++;
         await Future<void>.delayed(const Duration(milliseconds: 120));
       }

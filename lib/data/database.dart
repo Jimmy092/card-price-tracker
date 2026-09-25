@@ -11,6 +11,7 @@ part 'database.g.dart';
     Cards,
     WatchlistItems,
     TrackedItems,
+    TrackedLotSnapshots,
     PriceSnapshots,
     SyncRuns,
   ],
@@ -20,7 +21,7 @@ class AppDatabase extends _$AppDatabase {
       : super(executor ?? driftDatabase(name: 'card_price_tracker'));
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -59,6 +60,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(trackedItems, trackedItems.lastCtZeroCents);
             await m.addColumn(trackedItems, trackedItems.lastCtDirectCents);
             await m.addColumn(trackedItems, trackedItems.valuedAt);
+          }
+          if (from < 7) {
+            await m.createTable(trackedLotSnapshots);
           }
         },
       );
@@ -355,6 +359,10 @@ class AppDatabase extends _$AppDatabase {
       final historyByCard = await _monthHistoryByCardIds(
         cardsList.map((c) => c.id),
       );
+      final lotIds = [
+        for (final row in rows) row.readTable(trackedItems).id,
+      ];
+      final lotHistory = await _lotSnapshotsByTrackedIds(lotIds);
 
       final result = <TrackedRow>[];
       for (final row in rows) {
@@ -375,11 +383,52 @@ class AppDatabase extends _$AppDatabase {
             latestCt: latestCt,
             cmMonth: hist.$1,
             ctMonth: hist.$2,
+            lotSnapshots: lotHistory[item.id] ?? const [],
           ),
         );
       }
       return result;
     });
+  }
+
+  Future<Map<int, List<TrackedLotSnapshot>>> _lotSnapshotsByTrackedIds(
+    Iterable<int> trackedIds,
+  ) async {
+    final ids = trackedIds.toList();
+    if (ids.isEmpty) return {};
+    final since = DateTime.now().subtract(const Duration(days: 30));
+    final rows = await (select(trackedLotSnapshots)
+          ..where(
+            (t) =>
+                t.trackedItemId.isIn(ids) &
+                t.capturedAt.isBiggerOrEqualValue(since),
+          )
+          ..orderBy([(t) => OrderingTerm.asc(t.capturedAt)]))
+        .get();
+    final out = <int, List<TrackedLotSnapshot>>{};
+    for (final r in rows) {
+      (out[r.trackedItemId] ??= []).add(r);
+    }
+    return out;
+  }
+
+  Future<void> insertTrackedLotSnapshot({
+    required int trackedItemId,
+    int? cmTrendCents,
+    int? cmAvg7Cents,
+    int? cmAvg30Cents,
+    int? ctBestCents,
+  }) {
+    return into(trackedLotSnapshots).insert(
+      TrackedLotSnapshotsCompanion.insert(
+        trackedItemId: trackedItemId,
+        capturedAt: DateTime.now(),
+        cmTrendCents: Value(cmTrendCents),
+        cmAvg7Cents: Value(cmAvg7Cents),
+        cmAvg30Cents: Value(cmAvg30Cents),
+        ctBestCents: Value(ctBestCents),
+      ),
+    );
   }
 
   Future<List<TrackedEntry>> allTrackedEntries() async {
@@ -546,6 +595,9 @@ class AppDatabase extends _$AppDatabase {
   }
 
   Future<void> removeTrackedItem(int trackedItemId) async {
+    await (delete(trackedLotSnapshots)
+          ..where((t) => t.trackedItemId.equals(trackedItemId)))
+        .go();
     await (delete(trackedItems)..where((t) => t.id.equals(trackedItemId))).go();
   }
 
@@ -684,6 +736,7 @@ class TrackedRow {
     this.latestCt,
     this.cmMonth = const [],
     this.ctMonth = const [],
+    this.lotSnapshots = const [],
   });
 
   final TrackedItem item;
@@ -692,6 +745,7 @@ class TrackedRow {
   final PriceSnapshot? latestCt;
   final List<PriceSnapshot> cmMonth;
   final List<PriceSnapshot> ctMonth;
+  final List<TrackedLotSnapshot> lotSnapshots;
 
   int get costBasisCents => item.paidCents * item.quantity;
 

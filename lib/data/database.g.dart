@@ -2638,6 +2638,495 @@ class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
   }
 }
 
+class $TrackedLotSnapshotsTable extends TrackedLotSnapshots
+    with TableInfo<$TrackedLotSnapshotsTable, TrackedLotSnapshot> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TrackedLotSnapshotsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _trackedItemIdMeta = const VerificationMeta(
+    'trackedItemId',
+  );
+  @override
+  late final GeneratedColumn<int> trackedItemId = GeneratedColumn<int>(
+    'tracked_item_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES tracked_items (id)',
+    ),
+  );
+  static const VerificationMeta _capturedAtMeta = const VerificationMeta(
+    'capturedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> capturedAt = GeneratedColumn<DateTime>(
+    'captured_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _cmTrendCentsMeta = const VerificationMeta(
+    'cmTrendCents',
+  );
+  @override
+  late final GeneratedColumn<int> cmTrendCents = GeneratedColumn<int>(
+    'cm_trend_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cmAvg7CentsMeta = const VerificationMeta(
+    'cmAvg7Cents',
+  );
+  @override
+  late final GeneratedColumn<int> cmAvg7Cents = GeneratedColumn<int>(
+    'cm_avg7_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _cmAvg30CentsMeta = const VerificationMeta(
+    'cmAvg30Cents',
+  );
+  @override
+  late final GeneratedColumn<int> cmAvg30Cents = GeneratedColumn<int>(
+    'cm_avg30_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _ctBestCentsMeta = const VerificationMeta(
+    'ctBestCents',
+  );
+  @override
+  late final GeneratedColumn<int> ctBestCents = GeneratedColumn<int>(
+    'ct_best_cents',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    trackedItemId,
+    capturedAt,
+    cmTrendCents,
+    cmAvg7Cents,
+    cmAvg30Cents,
+    ctBestCents,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'tracked_lot_snapshots';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TrackedLotSnapshot> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('tracked_item_id')) {
+      context.handle(
+        _trackedItemIdMeta,
+        trackedItemId.isAcceptableOrUnknown(
+          data['tracked_item_id']!,
+          _trackedItemIdMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_trackedItemIdMeta);
+    }
+    if (data.containsKey('captured_at')) {
+      context.handle(
+        _capturedAtMeta,
+        capturedAt.isAcceptableOrUnknown(data['captured_at']!, _capturedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_capturedAtMeta);
+    }
+    if (data.containsKey('cm_trend_cents')) {
+      context.handle(
+        _cmTrendCentsMeta,
+        cmTrendCents.isAcceptableOrUnknown(
+          data['cm_trend_cents']!,
+          _cmTrendCentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cm_avg7_cents')) {
+      context.handle(
+        _cmAvg7CentsMeta,
+        cmAvg7Cents.isAcceptableOrUnknown(
+          data['cm_avg7_cents']!,
+          _cmAvg7CentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('cm_avg30_cents')) {
+      context.handle(
+        _cmAvg30CentsMeta,
+        cmAvg30Cents.isAcceptableOrUnknown(
+          data['cm_avg30_cents']!,
+          _cmAvg30CentsMeta,
+        ),
+      );
+    }
+    if (data.containsKey('ct_best_cents')) {
+      context.handle(
+        _ctBestCentsMeta,
+        ctBestCents.isAcceptableOrUnknown(
+          data['ct_best_cents']!,
+          _ctBestCentsMeta,
+        ),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TrackedLotSnapshot map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TrackedLotSnapshot(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      trackedItemId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}tracked_item_id'],
+      )!,
+      capturedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}captured_at'],
+      )!,
+      cmTrendCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cm_trend_cents'],
+      ),
+      cmAvg7Cents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cm_avg7_cents'],
+      ),
+      cmAvg30Cents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}cm_avg30_cents'],
+      ),
+      ctBestCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}ct_best_cents'],
+      ),
+    );
+  }
+
+  @override
+  $TrackedLotSnapshotsTable createAlias(String alias) {
+    return $TrackedLotSnapshotsTable(attachedDatabase, alias);
+  }
+}
+
+class TrackedLotSnapshot extends DataClass
+    implements Insertable<TrackedLotSnapshot> {
+  final int id;
+  final int trackedItemId;
+  final DateTime capturedAt;
+  final int? cmTrendCents;
+  final int? cmAvg7Cents;
+  final int? cmAvg30Cents;
+  final int? ctBestCents;
+  const TrackedLotSnapshot({
+    required this.id,
+    required this.trackedItemId,
+    required this.capturedAt,
+    this.cmTrendCents,
+    this.cmAvg7Cents,
+    this.cmAvg30Cents,
+    this.ctBestCents,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['tracked_item_id'] = Variable<int>(trackedItemId);
+    map['captured_at'] = Variable<DateTime>(capturedAt);
+    if (!nullToAbsent || cmTrendCents != null) {
+      map['cm_trend_cents'] = Variable<int>(cmTrendCents);
+    }
+    if (!nullToAbsent || cmAvg7Cents != null) {
+      map['cm_avg7_cents'] = Variable<int>(cmAvg7Cents);
+    }
+    if (!nullToAbsent || cmAvg30Cents != null) {
+      map['cm_avg30_cents'] = Variable<int>(cmAvg30Cents);
+    }
+    if (!nullToAbsent || ctBestCents != null) {
+      map['ct_best_cents'] = Variable<int>(ctBestCents);
+    }
+    return map;
+  }
+
+  TrackedLotSnapshotsCompanion toCompanion(bool nullToAbsent) {
+    return TrackedLotSnapshotsCompanion(
+      id: Value(id),
+      trackedItemId: Value(trackedItemId),
+      capturedAt: Value(capturedAt),
+      cmTrendCents: cmTrendCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cmTrendCents),
+      cmAvg7Cents: cmAvg7Cents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cmAvg7Cents),
+      cmAvg30Cents: cmAvg30Cents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(cmAvg30Cents),
+      ctBestCents: ctBestCents == null && nullToAbsent
+          ? const Value.absent()
+          : Value(ctBestCents),
+    );
+  }
+
+  factory TrackedLotSnapshot.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TrackedLotSnapshot(
+      id: serializer.fromJson<int>(json['id']),
+      trackedItemId: serializer.fromJson<int>(json['trackedItemId']),
+      capturedAt: serializer.fromJson<DateTime>(json['capturedAt']),
+      cmTrendCents: serializer.fromJson<int?>(json['cmTrendCents']),
+      cmAvg7Cents: serializer.fromJson<int?>(json['cmAvg7Cents']),
+      cmAvg30Cents: serializer.fromJson<int?>(json['cmAvg30Cents']),
+      ctBestCents: serializer.fromJson<int?>(json['ctBestCents']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'trackedItemId': serializer.toJson<int>(trackedItemId),
+      'capturedAt': serializer.toJson<DateTime>(capturedAt),
+      'cmTrendCents': serializer.toJson<int?>(cmTrendCents),
+      'cmAvg7Cents': serializer.toJson<int?>(cmAvg7Cents),
+      'cmAvg30Cents': serializer.toJson<int?>(cmAvg30Cents),
+      'ctBestCents': serializer.toJson<int?>(ctBestCents),
+    };
+  }
+
+  TrackedLotSnapshot copyWith({
+    int? id,
+    int? trackedItemId,
+    DateTime? capturedAt,
+    Value<int?> cmTrendCents = const Value.absent(),
+    Value<int?> cmAvg7Cents = const Value.absent(),
+    Value<int?> cmAvg30Cents = const Value.absent(),
+    Value<int?> ctBestCents = const Value.absent(),
+  }) => TrackedLotSnapshot(
+    id: id ?? this.id,
+    trackedItemId: trackedItemId ?? this.trackedItemId,
+    capturedAt: capturedAt ?? this.capturedAt,
+    cmTrendCents: cmTrendCents.present ? cmTrendCents.value : this.cmTrendCents,
+    cmAvg7Cents: cmAvg7Cents.present ? cmAvg7Cents.value : this.cmAvg7Cents,
+    cmAvg30Cents: cmAvg30Cents.present ? cmAvg30Cents.value : this.cmAvg30Cents,
+    ctBestCents: ctBestCents.present ? ctBestCents.value : this.ctBestCents,
+  );
+  TrackedLotSnapshot copyWithCompanion(TrackedLotSnapshotsCompanion data) {
+    return TrackedLotSnapshot(
+      id: data.id.present ? data.id.value : this.id,
+      trackedItemId: data.trackedItemId.present
+          ? data.trackedItemId.value
+          : this.trackedItemId,
+      capturedAt: data.capturedAt.present
+          ? data.capturedAt.value
+          : this.capturedAt,
+      cmTrendCents: data.cmTrendCents.present
+          ? data.cmTrendCents.value
+          : this.cmTrendCents,
+      cmAvg7Cents: data.cmAvg7Cents.present
+          ? data.cmAvg7Cents.value
+          : this.cmAvg7Cents,
+      cmAvg30Cents: data.cmAvg30Cents.present
+          ? data.cmAvg30Cents.value
+          : this.cmAvg30Cents,
+      ctBestCents: data.ctBestCents.present
+          ? data.ctBestCents.value
+          : this.ctBestCents,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackedLotSnapshot(')
+          ..write('id: $id, ')
+          ..write('trackedItemId: $trackedItemId, ')
+          ..write('capturedAt: $capturedAt, ')
+          ..write('cmTrendCents: $cmTrendCents, ')
+          ..write('cmAvg7Cents: $cmAvg7Cents, ')
+          ..write('cmAvg30Cents: $cmAvg30Cents, ')
+          ..write('ctBestCents: $ctBestCents')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    trackedItemId,
+    capturedAt,
+    cmTrendCents,
+    cmAvg7Cents,
+    cmAvg30Cents,
+    ctBestCents,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TrackedLotSnapshot &&
+          other.id == this.id &&
+          other.trackedItemId == this.trackedItemId &&
+          other.capturedAt == this.capturedAt &&
+          other.cmTrendCents == this.cmTrendCents &&
+          other.cmAvg7Cents == this.cmAvg7Cents &&
+          other.cmAvg30Cents == this.cmAvg30Cents &&
+          other.ctBestCents == this.ctBestCents);
+}
+
+class TrackedLotSnapshotsCompanion extends UpdateCompanion<TrackedLotSnapshot> {
+  final Value<int> id;
+  final Value<int> trackedItemId;
+  final Value<DateTime> capturedAt;
+  final Value<int?> cmTrendCents;
+  final Value<int?> cmAvg7Cents;
+  final Value<int?> cmAvg30Cents;
+  final Value<int?> ctBestCents;
+  const TrackedLotSnapshotsCompanion({
+    this.id = const Value.absent(),
+    this.trackedItemId = const Value.absent(),
+    this.capturedAt = const Value.absent(),
+    this.cmTrendCents = const Value.absent(),
+    this.cmAvg7Cents = const Value.absent(),
+    this.cmAvg30Cents = const Value.absent(),
+    this.ctBestCents = const Value.absent(),
+  });
+  TrackedLotSnapshotsCompanion.insert({
+    this.id = const Value.absent(),
+    required int trackedItemId,
+    required DateTime capturedAt,
+    this.cmTrendCents = const Value.absent(),
+    this.cmAvg7Cents = const Value.absent(),
+    this.cmAvg30Cents = const Value.absent(),
+    this.ctBestCents = const Value.absent(),
+  }) : trackedItemId = Value(trackedItemId),
+       capturedAt = Value(capturedAt);
+  static Insertable<TrackedLotSnapshot> custom({
+    Expression<int>? id,
+    Expression<int>? trackedItemId,
+    Expression<DateTime>? capturedAt,
+    Expression<int>? cmTrendCents,
+    Expression<int>? cmAvg7Cents,
+    Expression<int>? cmAvg30Cents,
+    Expression<int>? ctBestCents,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (trackedItemId != null) 'tracked_item_id': trackedItemId,
+      if (capturedAt != null) 'captured_at': capturedAt,
+      if (cmTrendCents != null) 'cm_trend_cents': cmTrendCents,
+      if (cmAvg7Cents != null) 'cm_avg7_cents': cmAvg7Cents,
+      if (cmAvg30Cents != null) 'cm_avg30_cents': cmAvg30Cents,
+      if (ctBestCents != null) 'ct_best_cents': ctBestCents,
+    });
+  }
+
+  TrackedLotSnapshotsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? trackedItemId,
+    Value<DateTime>? capturedAt,
+    Value<int?>? cmTrendCents,
+    Value<int?>? cmAvg7Cents,
+    Value<int?>? cmAvg30Cents,
+    Value<int?>? ctBestCents,
+  }) {
+    return TrackedLotSnapshotsCompanion(
+      id: id ?? this.id,
+      trackedItemId: trackedItemId ?? this.trackedItemId,
+      capturedAt: capturedAt ?? this.capturedAt,
+      cmTrendCents: cmTrendCents ?? this.cmTrendCents,
+      cmAvg7Cents: cmAvg7Cents ?? this.cmAvg7Cents,
+      cmAvg30Cents: cmAvg30Cents ?? this.cmAvg30Cents,
+      ctBestCents: ctBestCents ?? this.ctBestCents,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (trackedItemId.present) {
+      map['tracked_item_id'] = Variable<int>(trackedItemId.value);
+    }
+    if (capturedAt.present) {
+      map['captured_at'] = Variable<DateTime>(capturedAt.value);
+    }
+    if (cmTrendCents.present) {
+      map['cm_trend_cents'] = Variable<int>(cmTrendCents.value);
+    }
+    if (cmAvg7Cents.present) {
+      map['cm_avg7_cents'] = Variable<int>(cmAvg7Cents.value);
+    }
+    if (cmAvg30Cents.present) {
+      map['cm_avg30_cents'] = Variable<int>(cmAvg30Cents.value);
+    }
+    if (ctBestCents.present) {
+      map['ct_best_cents'] = Variable<int>(ctBestCents.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackedLotSnapshotsCompanion(')
+          ..write('id: $id, ')
+          ..write('trackedItemId: $trackedItemId, ')
+          ..write('capturedAt: $capturedAt, ')
+          ..write('cmTrendCents: $cmTrendCents, ')
+          ..write('cmAvg7Cents: $cmAvg7Cents, ')
+          ..write('cmAvg30Cents: $cmAvg30Cents, ')
+          ..write('ctBestCents: $ctBestCents')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $PriceSnapshotsTable extends PriceSnapshots
     with TableInfo<$PriceSnapshotsTable, PriceSnapshot> {
   @override
@@ -3898,6 +4387,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $CardsTable cards = $CardsTable(this);
   late final $WatchlistItemsTable watchlistItems = $WatchlistItemsTable(this);
   late final $TrackedItemsTable trackedItems = $TrackedItemsTable(this);
+  late final $TrackedLotSnapshotsTable trackedLotSnapshots =
+      $TrackedLotSnapshotsTable(this);
   late final $PriceSnapshotsTable priceSnapshots = $PriceSnapshotsTable(this);
   late final $SyncRunsTable syncRuns = $SyncRunsTable(this);
   @override
@@ -3909,6 +4400,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     cards,
     watchlistItems,
     trackedItems,
+    trackedLotSnapshots,
     priceSnapshots,
     syncRuns,
   ];
@@ -5386,6 +5878,30 @@ final class $$TrackedItemsTableReferences
       manager.$state.copyWith(prefetchedData: [item]),
     );
   }
+
+  static MultiTypedResultKey<
+    $TrackedLotSnapshotsTable,
+    List<TrackedLotSnapshot>
+  >
+  _trackedLotSnapshotsRefsTable(_$AppDatabase db) =>
+      MultiTypedResultKey.fromTable(
+        db.trackedLotSnapshots,
+        aliasName: 'tracked_items__id__tracked_lot_snapshots__tracked_item_id',
+      );
+
+  $$TrackedLotSnapshotsTableProcessedTableManager get trackedLotSnapshotsRefs {
+    final manager = $$TrackedLotSnapshotsTableTableManager(
+      $_db,
+      $_db.trackedLotSnapshots,
+    ).filter((f) => f.trackedItemId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(
+      _trackedLotSnapshotsRefsTable($_db),
+    );
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
 }
 
 class $$TrackedItemsTableFilterComposer
@@ -5498,6 +6014,31 @@ class $$TrackedItemsTableFilterComposer
           ),
     );
     return composer;
+  }
+
+  Expression<bool> trackedLotSnapshotsRefs(
+    Expression<bool> Function($$TrackedLotSnapshotsTableFilterComposer f) f,
+  ) {
+    final $$TrackedLotSnapshotsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.trackedLotSnapshots,
+      getReferencedColumn: (t) => t.trackedItemId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TrackedLotSnapshotsTableFilterComposer(
+            $db: $db,
+            $table: $db.trackedLotSnapshots,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
   }
 }
 
@@ -5707,6 +6248,32 @@ class $$TrackedItemsTableAnnotationComposer
     );
     return composer;
   }
+
+  Expression<T> trackedLotSnapshotsRefs<T extends Object>(
+    Expression<T> Function($$TrackedLotSnapshotsTableAnnotationComposer a) f,
+  ) {
+    final $$TrackedLotSnapshotsTableAnnotationComposer composer =
+        $composerBuilder(
+          composer: this,
+          getCurrentColumn: (t) => t.id,
+          referencedTable: $db.trackedLotSnapshots,
+          getReferencedColumn: (t) => t.trackedItemId,
+          builder:
+              (
+                joinBuilder, {
+                $addJoinBuilderToRootComposer,
+                $removeJoinBuilderFromRootComposer,
+              }) => $$TrackedLotSnapshotsTableAnnotationComposer(
+                $db: $db,
+                $table: $db.trackedLotSnapshots,
+                $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+                joinBuilder: joinBuilder,
+                $removeJoinBuilderFromRootComposer:
+                    $removeJoinBuilderFromRootComposer,
+              ),
+        );
+    return f(composer);
+  }
 }
 
 class $$TrackedItemsTableTableManager
@@ -5722,7 +6289,7 @@ class $$TrackedItemsTableTableManager
           $$TrackedItemsTableUpdateCompanionBuilder,
           (TrackedItem, $$TrackedItemsTableReferences),
           TrackedItem,
-          PrefetchHooks Function({bool cardId})
+          PrefetchHooks Function({bool cardId, bool trackedLotSnapshotsRefs})
         > {
   $$TrackedItemsTableTableManager(_$AppDatabase db, $TrackedItemsTable table)
     : super(
@@ -5819,7 +6386,409 @@ class $$TrackedItemsTableTableManager
                 ),
               )
               .toList(),
-          prefetchHooksCallback: ({cardId = false}) {
+          prefetchHooksCallback:
+              ({cardId = false, trackedLotSnapshotsRefs = false}) {
+                return PrefetchHooks(
+                  db: db,
+                  explicitlyWatchedTables: [
+                    if (trackedLotSnapshotsRefs) db.trackedLotSnapshots,
+                  ],
+                  addJoins:
+                      <
+                        T extends TableManagerState<
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic,
+                          dynamic
+                        >
+                      >(state) {
+                        if (cardId) {
+                          state = state.withJoin(
+                            currentTable: table,
+                            currentColumn: table.cardId,
+                            referencedTable: $$TrackedItemsTableReferences
+                                ._cardIdTable(db),
+                            referencedColumn: $$TrackedItemsTableReferences
+                                ._cardIdTable(db)
+                                .id,
+                          ) as T;
+                        }
+
+                        return state;
+                      },
+                  getPrefetchedDataCallback: (items) async {
+                    return [
+                      if (trackedLotSnapshotsRefs)
+                        await $_getPrefetchedData<
+                          TrackedItem,
+                          $TrackedItemsTable,
+                          TrackedLotSnapshot
+                        >(
+                          currentTable: table,
+                          referencedTable: $$TrackedItemsTableReferences
+                              ._trackedLotSnapshotsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$TrackedItemsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).trackedLotSnapshotsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.trackedItemId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
+                    ];
+                  },
+                );
+              },
+        ),
+      );
+}
+
+typedef $$TrackedItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TrackedItemsTable,
+      TrackedItem,
+      $$TrackedItemsTableFilterComposer,
+      $$TrackedItemsTableOrderingComposer,
+      $$TrackedItemsTableAnnotationComposer,
+      $$TrackedItemsTableCreateCompanionBuilder,
+      $$TrackedItemsTableUpdateCompanionBuilder,
+      (TrackedItem, $$TrackedItemsTableReferences),
+      TrackedItem,
+      PrefetchHooks Function({bool cardId, bool trackedLotSnapshotsRefs})
+    >;
+typedef $$TrackedLotSnapshotsTableCreateCompanionBuilder =
+    TrackedLotSnapshotsCompanion Function({
+      Value<int> id,
+      required int trackedItemId,
+      required DateTime capturedAt,
+      Value<int?> cmTrendCents,
+      Value<int?> cmAvg7Cents,
+      Value<int?> cmAvg30Cents,
+      Value<int?> ctBestCents,
+    });
+typedef $$TrackedLotSnapshotsTableUpdateCompanionBuilder =
+    TrackedLotSnapshotsCompanion Function({
+      Value<int> id,
+      Value<int> trackedItemId,
+      Value<DateTime> capturedAt,
+      Value<int?> cmTrendCents,
+      Value<int?> cmAvg7Cents,
+      Value<int?> cmAvg30Cents,
+      Value<int?> ctBestCents,
+    });
+
+final class $$TrackedLotSnapshotsTableReferences
+    extends
+        BaseReferences<
+          _$AppDatabase,
+          $TrackedLotSnapshotsTable,
+          TrackedLotSnapshot
+        > {
+  $$TrackedLotSnapshotsTableReferences(
+    super.$_db,
+    super.$_table,
+    super.$_typedResult,
+  );
+
+  static $TrackedItemsTable _trackedItemIdTable(_$AppDatabase db) => db
+      .trackedItems
+      .createAlias('tracked_lot_snapshots__tracked_item_id__tracked_items__id');
+
+  $$TrackedItemsTableProcessedTableManager get trackedItemId {
+    final $_column = $_itemColumn<int>('tracked_item_id')!;
+
+    final manager = $$TrackedItemsTableTableManager(
+      $_db,
+      $_db.trackedItems,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_trackedItemIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TrackedLotSnapshotsTableFilterComposer
+    extends Composer<_$AppDatabase, $TrackedLotSnapshotsTable> {
+  $$TrackedLotSnapshotsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cmTrendCents => $composableBuilder(
+    column: $table.cmTrendCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cmAvg7Cents => $composableBuilder(
+    column: $table.cmAvg7Cents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get cmAvg30Cents => $composableBuilder(
+    column: $table.cmAvg30Cents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get ctBestCents => $composableBuilder(
+    column: $table.ctBestCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$TrackedItemsTableFilterComposer get trackedItemId {
+    final $$TrackedItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackedItemId,
+      referencedTable: $db.trackedItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TrackedItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.trackedItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackedLotSnapshotsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TrackedLotSnapshotsTable> {
+  $$TrackedLotSnapshotsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cmTrendCents => $composableBuilder(
+    column: $table.cmTrendCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cmAvg7Cents => $composableBuilder(
+    column: $table.cmAvg7Cents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get cmAvg30Cents => $composableBuilder(
+    column: $table.cmAvg30Cents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get ctBestCents => $composableBuilder(
+    column: $table.ctBestCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$TrackedItemsTableOrderingComposer get trackedItemId {
+    final $$TrackedItemsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackedItemId,
+      referencedTable: $db.trackedItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TrackedItemsTableOrderingComposer(
+            $db: $db,
+            $table: $db.trackedItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackedLotSnapshotsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TrackedLotSnapshotsTable> {
+  $$TrackedLotSnapshotsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get capturedAt => $composableBuilder(
+    column: $table.capturedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get cmTrendCents => $composableBuilder(
+    column: $table.cmTrendCents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get cmAvg7Cents => $composableBuilder(
+    column: $table.cmAvg7Cents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get cmAvg30Cents => $composableBuilder(
+    column: $table.cmAvg30Cents,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get ctBestCents => $composableBuilder(
+    column: $table.ctBestCents,
+    builder: (column) => column,
+  );
+
+  $$TrackedItemsTableAnnotationComposer get trackedItemId {
+    final $$TrackedItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.trackedItemId,
+      referencedTable: $db.trackedItems,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TrackedItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.trackedItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackedLotSnapshotsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TrackedLotSnapshotsTable,
+          TrackedLotSnapshot,
+          $$TrackedLotSnapshotsTableFilterComposer,
+          $$TrackedLotSnapshotsTableOrderingComposer,
+          $$TrackedLotSnapshotsTableAnnotationComposer,
+          $$TrackedLotSnapshotsTableCreateCompanionBuilder,
+          $$TrackedLotSnapshotsTableUpdateCompanionBuilder,
+          (TrackedLotSnapshot, $$TrackedLotSnapshotsTableReferences),
+          TrackedLotSnapshot,
+          PrefetchHooks Function({bool trackedItemId})
+        > {
+  $$TrackedLotSnapshotsTableTableManager(
+    _$AppDatabase db,
+    $TrackedLotSnapshotsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TrackedLotSnapshotsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TrackedLotSnapshotsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$TrackedLotSnapshotsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> trackedItemId = const Value.absent(),
+                Value<DateTime> capturedAt = const Value.absent(),
+                Value<int?> cmTrendCents = const Value.absent(),
+                Value<int?> cmAvg7Cents = const Value.absent(),
+                Value<int?> cmAvg30Cents = const Value.absent(),
+                Value<int?> ctBestCents = const Value.absent(),
+              }) => TrackedLotSnapshotsCompanion(
+                id: id,
+                trackedItemId: trackedItemId,
+                capturedAt: capturedAt,
+                cmTrendCents: cmTrendCents,
+                cmAvg7Cents: cmAvg7Cents,
+                cmAvg30Cents: cmAvg30Cents,
+                ctBestCents: ctBestCents,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int trackedItemId,
+                required DateTime capturedAt,
+                Value<int?> cmTrendCents = const Value.absent(),
+                Value<int?> cmAvg7Cents = const Value.absent(),
+                Value<int?> cmAvg30Cents = const Value.absent(),
+                Value<int?> ctBestCents = const Value.absent(),
+              }) => TrackedLotSnapshotsCompanion.insert(
+                id: id,
+                trackedItemId: trackedItemId,
+                capturedAt: capturedAt,
+                cmTrendCents: cmTrendCents,
+                cmAvg7Cents: cmAvg7Cents,
+                cmAvg30Cents: cmAvg30Cents,
+                ctBestCents: ctBestCents,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$TrackedLotSnapshotsTable, TrackedLotSnapshot>(
+                    table,
+                  ),
+                  $$TrackedLotSnapshotsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({trackedItemId = false}) {
             return PrefetchHooks(
               db: db,
               explicitlyWatchedTables: [],
@@ -5839,14 +6808,14 @@ class $$TrackedItemsTableTableManager
                       dynamic
                     >
                   >(state) {
-                    if (cardId) {
+                    if (trackedItemId) {
                       state = state.withJoin(
                         currentTable: table,
-                        currentColumn: table.cardId,
-                        referencedTable: $$TrackedItemsTableReferences
-                            ._cardIdTable(db),
-                        referencedColumn: $$TrackedItemsTableReferences
-                            ._cardIdTable(db)
+                        currentColumn: table.trackedItemId,
+                        referencedTable: $$TrackedLotSnapshotsTableReferences
+                            ._trackedItemIdTable(db),
+                        referencedColumn: $$TrackedLotSnapshotsTableReferences
+                            ._trackedItemIdTable(db)
                             .id,
                       ) as T;
                     }
@@ -5862,19 +6831,19 @@ class $$TrackedItemsTableTableManager
       );
 }
 
-typedef $$TrackedItemsTableProcessedTableManager =
+typedef $$TrackedLotSnapshotsTableProcessedTableManager =
     ProcessedTableManager<
       _$AppDatabase,
-      $TrackedItemsTable,
-      TrackedItem,
-      $$TrackedItemsTableFilterComposer,
-      $$TrackedItemsTableOrderingComposer,
-      $$TrackedItemsTableAnnotationComposer,
-      $$TrackedItemsTableCreateCompanionBuilder,
-      $$TrackedItemsTableUpdateCompanionBuilder,
-      (TrackedItem, $$TrackedItemsTableReferences),
-      TrackedItem,
-      PrefetchHooks Function({bool cardId})
+      $TrackedLotSnapshotsTable,
+      TrackedLotSnapshot,
+      $$TrackedLotSnapshotsTableFilterComposer,
+      $$TrackedLotSnapshotsTableOrderingComposer,
+      $$TrackedLotSnapshotsTableAnnotationComposer,
+      $$TrackedLotSnapshotsTableCreateCompanionBuilder,
+      $$TrackedLotSnapshotsTableUpdateCompanionBuilder,
+      (TrackedLotSnapshot, $$TrackedLotSnapshotsTableReferences),
+      TrackedLotSnapshot,
+      PrefetchHooks Function({bool trackedItemId})
     >;
 typedef $$PriceSnapshotsTableCreateCompanionBuilder =
     PriceSnapshotsCompanion Function({
@@ -6610,6 +7579,8 @@ class $AppDatabaseManager {
       $$WatchlistItemsTableTableManager(_db, _db.watchlistItems);
   $$TrackedItemsTableTableManager get trackedItems =>
       $$TrackedItemsTableTableManager(_db, _db.trackedItems);
+  $$TrackedLotSnapshotsTableTableManager get trackedLotSnapshots =>
+      $$TrackedLotSnapshotsTableTableManager(_db, _db.trackedLotSnapshots);
   $$PriceSnapshotsTableTableManager get priceSnapshots =>
       $$PriceSnapshotsTableTableManager(_db, _db.priceSnapshots);
   $$SyncRunsTableTableManager get syncRuns =>

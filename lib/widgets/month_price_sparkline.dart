@@ -17,6 +17,9 @@ class MonthPriceSparkline extends StatelessWidget {
     this.cmTrendOverrideCents,
     this.cmAvg7OverrideCents,
     this.cmAvg30OverrideCents,
+    this.ctBestOverrideCents,
+    this.ctHistoryCents = const [],
+    this.preferCmGuideSlope = false,
   });
 
   final List<PriceSnapshot> cmSnapshots;
@@ -28,6 +31,13 @@ class MonthPriceSparkline extends StatelessWidget {
   final int? cmTrendOverrideCents;
   final int? cmAvg7OverrideCents;
   final int? cmAvg30OverrideCents;
+  /// Current CT best for this lot (always plotted on the CT series).
+  final int? ctBestOverrideCents;
+  /// Lot-specific CT samples `(capturedAt, cents)` for real CT history.
+  final List<(DateTime at, int cents)> ctHistoryCents;
+  /// When true (portfolio), CM chart + % always use guide avg30→trend for
+  /// this lot instead of shared card sync history.
+  final bool preferCmGuideSlope;
   final double height;
 
   static const window = Duration(days: 30);
@@ -41,6 +51,11 @@ class MonthPriceSparkline extends StatelessWidget {
       cmTrendOverrideCents: cmTrendOverrideCents,
       cmAvg7OverrideCents: cmAvg7OverrideCents,
       cmAvg30OverrideCents: cmAvg30OverrideCents,
+      ctBestOverrideCents: ctBestOverrideCents,
+      ctHistoryCents: ctHistoryCents,
+      preferCmGuideSlope: preferCmGuideSlope ||
+          cmTrendOverrideCents != null ||
+          cmAvg30OverrideCents != null,
     );
     if (!series.hasAny) {
       return SizedBox(
@@ -60,6 +75,7 @@ class MonthPriceSparkline extends StatelessWidget {
     final minY = series.minY;
     final maxY = series.maxY;
     final span = series.spanMs;
+    final ctLabel = series.ctEstimated ? 'CT est.' : 'CT 30d';
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -106,19 +122,20 @@ class MonthPriceSparkline extends StatelessWidget {
                     isCurved: series.ctSpots.length > 2,
                     preventCurveOverShooting: true,
                     color: AppTheme.ctTeal,
-                    barWidth: 2,
+                    barWidth: 2.2,
                     isStrokeCapRound: true,
+                    dashArray: series.ctEstimated ? [6, 4] : null,
                     dotData: FlDotData(
-                      show: series.ctSpots.length <= 2,
+                      show: series.ctSpots.length <= 3,
                       getDotPainter: (s, p, b, i) => FlDotCirclePainter(
-                        radius: 2.4,
+                        radius: 2.6,
                         color: AppTheme.ctTeal,
                         strokeWidth: 0,
                       ),
                     ),
                     belowBarData: BarAreaData(
                       show: true,
-                      color: AppTheme.ctTeal.withValues(alpha: 0.10),
+                      color: AppTheme.ctTeal.withValues(alpha: 0.12),
                     ),
                   ),
               ],
@@ -131,7 +148,7 @@ class MonthPriceSparkline extends StatelessWidget {
           children: [
             _MiniLegend(color: AppTheme.cmAmber, label: 'CM 30d'),
             const SizedBox(width: 10),
-            _MiniLegend(color: AppTheme.ctTeal, label: 'CT 30d'),
+            _MiniLegend(color: AppTheme.ctTeal, label: ctLabel),
             const Spacer(),
             if (series.cmSlopePct != null)
               Text(
@@ -159,6 +176,17 @@ class MonthPriceSparkline extends StatelessWidget {
               ),
           ],
         ),
+        if (series.ctEstimated)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Text(
+              'CT est. = current CT scaled by CM avg30→trend (CT has no public 30d sales API)',
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontSize: 10,
+                  ),
+            ),
+          ),
       ],
     );
   }
@@ -202,6 +230,7 @@ class MonthPriceSeries {
     required this.windowStart,
     this.cmSlopePct,
     this.ctSlopePct,
+    this.ctEstimated = false,
   });
 
   final List<FlSpot> cmSpots;
@@ -212,6 +241,8 @@ class MonthPriceSeries {
   final DateTime windowStart;
   final double? cmSlopePct;
   final double? ctSlopePct;
+  /// True when CT 30d was estimated from CM guide shape × current CT.
+  final bool ctEstimated;
 
   bool get hasAny => cmSpots.isNotEmpty || ctSpots.isNotEmpty;
 
@@ -222,6 +253,9 @@ class MonthPriceSeries {
     int? cmTrendOverrideCents,
     int? cmAvg7OverrideCents,
     int? cmAvg30OverrideCents,
+    int? ctBestOverrideCents,
+    List<(DateTime at, int cents)> ctHistoryCents = const [],
+    bool preferCmGuideSlope = false,
     DateTime? now,
   }) {
     final end = now ?? DateTime.now();
@@ -233,56 +267,132 @@ class MonthPriceSeries {
       return ms.clamp(0, spanMs);
     }
 
+    final trendCents = cmTrendOverrideCents ??
+        latestCm?.cmTrendCents ??
+        (cmSnapshots.isEmpty ? null : cmSnapshots.last.cmTrendCents);
+    final avg7Cents = cmAvg7OverrideCents ??
+        latestCm?.cmAvg7Cents ??
+        (cmSnapshots.isEmpty ? null : cmSnapshots.last.cmAvg7Cents);
+    final avg30Cents = cmAvg30OverrideCents ??
+        latestCm?.cmAvg30Cents ??
+        (cmSnapshots.isEmpty ? null : cmSnapshots.last.cmAvg30Cents);
+
+    final guideSpots = _syntheticCmSpots(
+      trendCents: trendCents,
+      avg7Cents: avg7Cents,
+      avg30Cents: avg30Cents,
+      start: start,
+      end: end,
+      xOf: xOf,
+    );
+    // CM "30d %" = current trend vs 30-day average (Cardmarket guide fields).
+    final guideSlopePct = _guideMonthSlopePct(
+      trendCents: trendCents,
+      avg30Cents: avg30Cents,
+    );
+
     final cmInWindow = cmSnapshots
         .where((s) => !s.capturedAt.isBefore(start) && s.cmTrendCents != null)
         .toList()
       ..sort((a, b) => a.capturedAt.compareTo(b.capturedAt));
+    final historyCmSpots = _dedupeSpots([
+      for (final s in cmInWindow)
+        FlSpot(xOf(s.capturedAt), s.cmTrendCents! / 100.0),
+    ]);
+    final historySpanOk = _hasMeaningfulTimeSpan(cmInWindow);
+
+    late final List<FlSpot> cmSpots;
+    late final double? cmSlopePct;
+    if (preferCmGuideSlope && guideSpots.isNotEmpty) {
+      cmSpots = guideSpots;
+      cmSlopePct = guideSlopePct;
+    } else if (historyCmSpots.length >= 2 && historySpanOk) {
+      cmSpots = historyCmSpots;
+      cmSlopePct = _slopePct(historyCmSpots) ?? guideSlopePct;
+    } else if (guideSpots.isNotEmpty) {
+      cmSpots = guideSpots;
+      cmSlopePct = guideSlopePct;
+    } else {
+      cmSpots = historyCmSpots;
+      cmSlopePct = _slopePct(historyCmSpots);
+    }
+
+    // --- CT series: prefer lot history, then shared snapshots, then estimate ---
+    final lotCt = [
+      for (final p in ctHistoryCents)
+        if (!p.$1.isBefore(start)) (p.$1, p.$2),
+    ]..sort((a, b) => a.$1.compareTo(b.$1));
+
     final ctInWindow = ctSnapshots.where((s) {
       final cents = s.ctMinZeroCents ?? s.ctMinDirectCents;
       return cents != null && !s.capturedAt.isBefore(start);
     }).toList()
       ..sort((a, b) => a.capturedAt.compareTo(b.capturedAt));
 
-    var cmSpots = <FlSpot>[
-      for (final s in cmInWindow) FlSpot(xOf(s.capturedAt), s.cmTrendCents! / 100.0),
-    ];
-    // Deduplicate same-x points (keep last).
-    cmSpots = _dedupeSpots(cmSpots);
+    var ctSpots = _dedupeSpots([
+      if (lotCt.isNotEmpty)
+        for (final p in lotCt) FlSpot(xOf(p.$1), p.$2 / 100.0)
+      else
+        for (final s in ctInWindow)
+          FlSpot(
+            xOf(s.capturedAt),
+            (s.ctMinZeroCents ?? s.ctMinDirectCents)! / 100.0,
+          ),
+    ]);
 
-    // Synthesize CM month slope from guide rolling averages when history is thin.
-    if (cmSpots.length < 2) {
-      final synthetic = _syntheticCmSpots(
-        trendCents: cmTrendOverrideCents ??
-            latestCm?.cmTrendCents ??
-            (cmSnapshots.isEmpty ? null : cmSnapshots.last.cmTrendCents),
-        avg7Cents: cmAvg7OverrideCents ??
-            latestCm?.cmAvg7Cents ??
-            (cmSnapshots.isEmpty ? null : cmSnapshots.last.cmAvg7Cents),
-        avg30Cents: cmAvg30OverrideCents ??
-            latestCm?.cmAvg30Cents ??
-            (cmSnapshots.isEmpty ? null : cmSnapshots.last.cmAvg30Cents),
+    // Always pin current lot CT at "now".
+    if (ctBestOverrideCents != null) {
+      final nowSpot = FlSpot(spanMs, ctBestOverrideCents / 100.0);
+      if (ctSpots.isEmpty) {
+        ctSpots = [nowSpot];
+      } else if ((ctSpots.last.x - spanMs).abs() < 0.5) {
+        ctSpots = [...ctSpots.sublist(0, ctSpots.length - 1), nowSpot];
+      } else {
+        ctSpots = [...ctSpots, nowSpot];
+      }
+    }
+
+    final realCtTimes = lotCt.isNotEmpty
+        ? lotCt.map((e) => e.$1).toList()
+        : ctInWindow.map((e) => e.capturedAt).toList();
+    final realCtSpanOk = realCtTimes.length >= 2 &&
+        realCtTimes.last.difference(realCtTimes.first).inHours >= 12;
+
+    var ctEstimated = false;
+    double? ctSlopePct;
+    if (ctSpots.length >= 2 && realCtSpanOk) {
+      ctSlopePct = _slopePct(ctSpots);
+    } else if (ctBestOverrideCents != null &&
+        trendCents != null &&
+        trendCents > 0 &&
+        avg30Cents != null &&
+        avg7Cents != null) {
+      // CardTrader has no public 30d sales API — estimate shape from CM guide
+      // ratios, anchored on this lot's current CT best.
+      final est = _syntheticCtFromCmShape(
+        ctNowCents: ctBestOverrideCents,
+        cmTrendCents: trendCents,
+        cmAvg7Cents: avg7Cents,
+        cmAvg30Cents: avg30Cents,
         start: start,
         end: end,
         xOf: xOf,
       );
-      if (synthetic.length >= cmSpots.length) {
-        cmSpots = synthetic;
+      if (est.isNotEmpty) {
+        ctSpots = est;
+        ctEstimated = true;
+        ctSlopePct = _guideMonthSlopePct(
+          trendCents: ctBestOverrideCents,
+          avg30Cents: (ctBestOverrideCents * avg30Cents / trendCents).round(),
+        );
       }
-    }
-
-    var ctSpots = <FlSpot>[
-      for (final s in ctInWindow)
-        FlSpot(
-          xOf(s.capturedAt),
-          (s.ctMinZeroCents ?? s.ctMinDirectCents)! / 100.0,
-        ),
-    ];
-    ctSpots = _dedupeSpots(ctSpots);
-
-    // Single CT point: stretch a flat segment so the slope line is visible.
-    if (ctSpots.length == 1) {
+    } else if (ctSpots.length == 1) {
+      // Show a short recent segment so CT is visible next to CM.
       final y = ctSpots.first.y;
-      ctSpots = [FlSpot(0, y), FlSpot(spanMs, y)];
+      ctSpots = [
+        FlSpot(spanMs * 0.85, y),
+        FlSpot(spanMs, y),
+      ];
     }
 
     final allY = <double>[
@@ -308,9 +418,50 @@ class MonthPriceSeries {
       minY: minY,
       maxY: maxY,
       windowStart: start,
-      cmSlopePct: _slopePct(cmSpots),
-      ctSlopePct: _slopePct(ctSpots),
+      cmSlopePct: cmSlopePct,
+      ctSlopePct: ctSlopePct,
+      ctEstimated: ctEstimated,
     );
+  }
+
+  /// Scale CM avg30→avg7→trend shape onto current CT asking price.
+  static List<FlSpot> _syntheticCtFromCmShape({
+    required int ctNowCents,
+    required int cmTrendCents,
+    required int cmAvg7Cents,
+    required int cmAvg30Cents,
+    required DateTime start,
+    required DateTime end,
+    required double Function(DateTime) xOf,
+  }) {
+    if (cmTrendCents <= 0 || ctNowCents <= 0) return const [];
+    final scale = ctNowCents / cmTrendCents;
+    final ct30 = (cmAvg30Cents * scale).round() / 100.0;
+    final ct7 = (cmAvg7Cents * scale).round() / 100.0;
+    final ctNow = ctNowCents / 100.0;
+    return _dedupeSpots([
+      FlSpot(xOf(start), ct30),
+      FlSpot(xOf(end.subtract(const Duration(days: 7))), ct7),
+      FlSpot(xOf(end), ctNow),
+    ]);
+  }
+
+  /// Current CM trend vs rolling 30-day average.
+  static double? _guideMonthSlopePct({
+    required int? trendCents,
+    required int? avg30Cents,
+  }) {
+    if (trendCents == null || avg30Cents == null || avg30Cents == 0) {
+      return null;
+    }
+    return ((trendCents - avg30Cents) / avg30Cents) * 100;
+  }
+
+  static bool _hasMeaningfulTimeSpan(List<PriceSnapshot> snaps) {
+    if (snaps.length < 2) return false;
+    final first = snaps.first.capturedAt;
+    final last = snaps.last.capturedAt;
+    return last.difference(first).inHours >= 12;
   }
 
   static List<FlSpot> _syntheticCmSpots({
