@@ -4,11 +4,13 @@ import 'package:flutter/material.dart' hide Card;
 import 'package:provider/provider.dart';
 
 import '../data/database.dart';
+import '../services/cardmarket_ingest.dart';
 import '../services/cardtrader_client.dart';
 import '../services/scryfall_client.dart';
 import '../services/sync_service.dart';
 import '../widgets/card_thumb.dart';
 import '../widgets/price_format.dart';
+import '../widgets/ui_kit.dart';
 
 /// One printing of a card (across sets), optionally linked to a CT blueprint.
 class _PrintingRow {
@@ -48,6 +50,9 @@ class _SearchScreenState extends State<SearchScreen> {
   final Map<int, String> _priceErrors = {};
   final Set<String> _expandedKeys = {};
   final Set<int> _loadingPrices = {};
+  /// Cardmarket From (low) cents keyed by printing id (Scryfall id).
+  final Map<String, int?> _cmFromByPrinting = {};
+  bool _cmLookupReady = false;
 
   /// null = any language; otherwise CardTrader language code (e.g. `en`).
   String? _language;
@@ -55,7 +60,6 @@ class _SearchScreenState extends State<SearchScreen> {
   bool? _foil;
   /// null = any condition; otherwise minimum accepted grade.
   CardCondition? _minCondition;
-  final _sellerQuery = TextEditingController();
   final _minQtyQuery = TextEditingController();
 
   bool _loadingNames = false;
@@ -78,20 +82,98 @@ class _SearchScreenState extends State<SearchScreen> {
     _query.removeListener(_onQueryChanged);
     _query.dispose();
     _focus.dispose();
-    _sellerQuery.dispose();
     _minQtyQuery.dispose();
     super.dispose();
-  }
-
-  String? get _sellerFilter {
-    final t = _sellerQuery.text.trim();
-    return t.isEmpty ? null : t;
   }
 
   int? get _minQtyFilter {
     final t = _minQtyQuery.text.trim();
     if (t.isEmpty) return null;
     return int.tryParse(t);
+  }
+
+  bool get _hasActiveListingFilters =>
+      _language != null ||
+      _foil != null ||
+      _minCondition != null ||
+      (_minQtyFilter != null && _minQtyFilter! > 0);
+
+  bool get _ctPricesSettled {
+    for (final row in _printings) {
+      final id = row.blueprintId;
+      if (id == null) continue;
+      if (_loadingPrices.contains(id)) return false;
+      if (!_markets.containsKey(id) && !_priceErrors.containsKey(id)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Printings that still match the user's CT listing filters.
+  List<_PrintingRow> get _visiblePrintings {
+    final out = <_PrintingRow>[];
+    for (final row in _printings) {
+      final bp = row.blueprintId;
+      if (bp == null) {
+        // No CT match — only keep when no listing filters are active.
+        if (!_hasActiveListingFilters) out.add(row);
+        continue;
+      }
+      if (_loadingPrices.contains(bp) && !_markets.containsKey(bp)) {
+        // Still loading this printing's filtered market.
+        out.add(row);
+        continue;
+      }
+      final market = _markets[bp];
+      if (market != null && market.listingCount > 0) {
+        out.add(row);
+      }
+    }
+    return out;
+  }
+
+  int? _cmFromFor(_PrintingRow row) => _cmFromByPrinting[row.key];
+
+  void _refineCmFromForBlueprint(int blueprintId, int? ctBestCents) {
+    final cm = context.read<CardmarketIngest>();
+    if (!_cmLookupReady) return;
+    for (final row in _printings) {
+      if (row.blueprintId != blueprintId) continue;
+      _cmFromByPrinting[row.key] = cm.fromCentsForPrinting(
+        name: row.name,
+        collectorNumber: row.printing.collectorNumber,
+        setName: row.printing.setName,
+        foil: _foil,
+        preferNearCents: ctBestCents,
+        cardmarketId: row.printing.cardmarketId,
+      );
+    }
+  }
+
+  Future<void> _refreshCmTrends() async {
+    final cm = context.read<CardmarketIngest>();
+    final ready = await cm.ensureLookupReady();
+    if (!mounted) return;
+    setState(() => _cmLookupReady = ready);
+    if (!ready) return;
+
+    final next = <String, int?>{};
+    for (final row in _printings) {
+      next[row.key] = cm.fromCentsForPrinting(
+        name: row.name,
+        collectorNumber: row.printing.collectorNumber,
+        setName: row.printing.setName,
+        foil: _foil,
+        cardmarketId: row.printing.cardmarketId,
+      );
+    }
+    if (!mounted) return;
+    setState(() {
+      _cmFromByPrinting
+        ..clear()
+        ..addAll(next);
+    });
   }
 
   void _onQueryChanged() {
@@ -105,6 +187,7 @@ class _SearchScreenState extends State<SearchScreen> {
         _loadingNames = false;
         _loadingPrintings = false;
         _error = null;
+        _cmFromByPrinting.clear();
       });
       return;
     }
@@ -228,6 +311,8 @@ class _SearchScreenState extends State<SearchScreen> {
         _loadingPrintings = false;
       });
 
+      unawaited(_refreshCmTrends());
+
       final withBp = rows
           .where((r) => r.blueprintId != null)
           .map((r) => r.blueprintId!)
@@ -255,7 +340,6 @@ class _SearchScreenState extends State<SearchScreen> {
           foil: _foil,
           language: _language,
           minCondition: _minCondition,
-          sellerName: _sellerFilter,
           minQuantity: _minQtyFilter,
         );
         if (!mounted || priceGen != _priceGen) return;
@@ -263,6 +347,7 @@ class _SearchScreenState extends State<SearchScreen> {
           _markets[id] = market;
           _priceErrors.remove(id);
           _loadingPrices.remove(id);
+          _refineCmFromForBlueprint(id, market.bestPriceCents);
         });
       } catch (e) {
         if (!mounted || priceGen != _priceGen) return;
@@ -288,7 +373,6 @@ class _SearchScreenState extends State<SearchScreen> {
             foil: _foil,
             language: _language,
             minCondition: _minCondition,
-            sellerName: _sellerFilter,
             minQuantity: _minQtyFilter,
           );
       if (!mounted || priceGen != _priceGen) return;
@@ -296,6 +380,7 @@ class _SearchScreenState extends State<SearchScreen> {
         _markets[blueprintId] = market;
         _priceErrors.remove(blueprintId);
         _loadingPrices.remove(blueprintId);
+        _refineCmFromForBlueprint(blueprintId, market.bestPriceCents);
       });
     } catch (e) {
       if (!mounted || priceGen != _priceGen) return;
@@ -312,7 +397,9 @@ class _SearchScreenState extends State<SearchScreen> {
       _markets.clear();
       _priceErrors.clear();
       _loadingPrices.clear();
+      _expandedKeys.clear();
     });
+    unawaited(_refreshCmTrends());
     final withBp = _printings
         .where((r) => r.blueprintId != null)
         .map((r) => r.blueprintId!)
@@ -364,11 +451,11 @@ class _SearchScreenState extends State<SearchScreen> {
           expansion: bp.expansionName ?? row.printing.setName,
           cardTraderBlueprintId: bp.id,
           cardTraderExpansionId: bp.expansionId,
+          cardmarketProductId: row.printing.cardmarketId,
           imageUrl: row.imageUrl ?? bp.absoluteImageUrl,
           foil: _foil,
           language: _language,
           minCondition: _minCondition?.label,
-          sellerName: _sellerFilter,
           minSellerQuantity: _minQtyFilter,
         );
     if (!mounted) return;
@@ -394,7 +481,25 @@ class _SearchScreenState extends State<SearchScreen> {
         _nameSuggestions.isNotEmpty && _resolvedName == null && !_loadingPrintings;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Search / Add')),
+      backgroundColor: Colors.transparent,
+      appBar: AppBar(
+        title: const Text('Search'),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(18),
+          child: Padding(
+            padding: const EdgeInsets.only(left: 16, bottom: 8),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                'Browse printings · filter live CT offers',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+              ),
+            ),
+          ),
+        ),
+      ),
       body: Column(
         children: [
           Padding(
@@ -449,26 +554,28 @@ class _SearchScreenState extends State<SearchScreen> {
             ),
           ),
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: _ListingFilters(
-              language: _language,
-              foil: _foil,
-              minCondition: _minCondition,
-              sellerController: _sellerQuery,
-              minQtyController: _minQtyQuery,
-              onLanguageChanged: (v) {
-                setState(() => _language = v);
-                _onFiltersChanged();
-              },
-              onFoilChanged: (v) {
-                setState(() => _foil = v);
-                _onFiltersChanged();
-              },
-              onMinConditionChanged: (v) {
-                setState(() => _minCondition = v);
-                _onFiltersChanged();
-              },
-              onSellerOrQtyChanged: _onFiltersChanged,
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+            child: GlowCard(
+              padding: const EdgeInsets.all(12),
+              child: _ListingFilters(
+                language: _language,
+                foil: _foil,
+                minCondition: _minCondition,
+                minQtyController: _minQtyQuery,
+                onLanguageChanged: (v) {
+                  setState(() => _language = v);
+                  _onFiltersChanged();
+                },
+                onFoilChanged: (v) {
+                  setState(() => _foil = v);
+                  _onFiltersChanged();
+                },
+                onMinConditionChanged: (v) {
+                  setState(() => _minCondition = v);
+                  _onFiltersChanged();
+                },
+                onMinQtyChanged: _onFiltersChanged,
+              ),
             ),
           ),
           if (_error != null)
@@ -504,7 +611,9 @@ class _SearchScreenState extends State<SearchScreen> {
                 child: Text(
                   _loadingPrintings
                       ? 'Loading all printings of $_resolvedName…'
-                      : '${_printings.length} printings of $_resolvedName',
+                      : !_ctPricesSettled
+                          ? 'Checking filtered listings for $_resolvedName…'
+                          : '${_visiblePrintings.length} result${_visiblePrintings.length == 1 ? '' : 's'} for $_resolvedName',
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
               ),
@@ -522,193 +631,248 @@ class _SearchScreenState extends State<SearchScreen> {
       return const Center(child: CircularProgressIndicator());
     }
     if (_printings.isEmpty) {
-      return Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Text(
-            showNamePicker
-                ? 'Tap a suggested name to see every expansion printing.'
-                : 'Type a card name (at least 2 characters).',
-            textAlign: TextAlign.center,
-          ),
-        ),
+      return EmptyState(
+        icon: Icons.travel_explore_rounded,
+        title: showNamePicker ? 'Pick a name' : 'Start typing',
+        message: showNamePicker
+            ? 'Tap a suggestion to load every expansion printing.'
+            : 'Enter at least 2 characters of a card name.',
       );
     }
 
+    final visible = _visiblePrintings;
+    if (_ctPricesSettled && visible.isEmpty) {
+      return EmptyState(
+        icon: Icons.filter_alt_off_rounded,
+        title: 'Search returned 0 results',
+        message: _hasActiveListingFilters
+            ? 'No CardTrader listings match your filters '
+                '(language, foil, condition, or min qty). '
+                'Try loosening them.'
+            : 'No matching printings or listings were found.',
+      );
+    }
+
+    if (!_ctPricesSettled && visible.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return ListView.builder(
-      itemCount: _printings.length,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
+      itemCount: visible.length,
       itemBuilder: (context, i) {
-        final row = _printings[i];
+        final row = visible[i];
         final bpId = row.blueprintId;
         final market = bpId == null ? null : _markets[bpId];
         final expanded = _expandedKeys.contains(row.key);
         final loadingPrice = bpId != null && _loadingPrices.contains(bpId);
         final top5 = market?.bestListings(limit: 5) ?? const [];
+        final cmFrom = _cmFromFor(row);
 
-        return Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          child: Material(
-            color: Theme.of(context).colorScheme.surface,
-            elevation: 1,
-            shadowColor: Colors.black26,
-            borderRadius: BorderRadius.circular(12),
-            clipBehavior: Clip.antiAlias,
-            child: Column(
-              children: [
-                InkWell(
-                  onTap: () => _toggleExpand(row),
-                  child: Padding(
-                    padding: const EdgeInsets.all(10),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        CardThumb(url: row.imageUrl),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                row.name,
-                                style: Theme.of(context).textTheme.titleSmall,
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                row.setLabel,
-                                style: Theme.of(context).textTheme.bodySmall,
-                              ),
-                              const SizedBox(height: 8),
-                              if (bpId == null)
-                                Text(
-                                  'No CardTrader listing link for this set yet',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                )
-                              else if (loadingPrice && market == null)
-                                const SizedBox(
-                                  width: 16,
-                                  height: 16,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
+        return GlowCard(
+          margin: const EdgeInsets.only(bottom: 12),
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: [
+              InkWell(
+                onTap: () => _toggleExpand(row),
+                borderRadius: BorderRadius.circular(18),
+                child: Padding(
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      CardThumb(url: row.imageUrl, width: 64, height: 88),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              row.name,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w800,
                                   ),
-                                )
-                              else if (market != null)
-                                Wrap(
-                                  spacing: 8,
-                                  runSpacing: 4,
-                                  children: [
-                                    _PriceChip(
-                                      label: 'Best',
-                                      value: formatEurCents(
-                                        market.bestPriceCents,
-                                      ),
-                                      emphasize: true,
+                            ),
+                            const SizedBox(height: 2),
+                            Text(
+                              row.setLabel,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                            ),
+                            const SizedBox(height: 8),
+                            if (loadingPrice && market == null)
+                              const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            else
+                              Wrap(
+                                spacing: 6,
+                                runSpacing: 6,
+                                children: [
+                                  PricePill(
+                                    label: 'CM From',
+                                    value: !_cmLookupReady && cmFrom == null
+                                        ? '—'
+                                        : formatEurCents(cmFrom),
+                                    tone: PriceTone.cm,
+                                    compact: true,
+                                  ),
+                                  if (bpId == null)
+                                    const PricePill(
+                                      label: 'CT',
+                                      value: 'no link',
+                                      tone: PriceTone.neutral,
+                                      compact: true,
+                                    )
+                                  else if (market != null) ...[
+                                    PricePill(
+                                      label: 'CT Best',
+                                      value: formatEurCents(market.bestPriceCents),
+                                      tone: PriceTone.ct,
+                                      compact: true,
                                     ),
                                     if (market.minZeroCents != null)
-                                      _PriceChip(
+                                      PricePill(
                                         label: 'Zero',
-                                        value: formatEurCents(
-                                          market.minZeroCents,
-                                        ),
+                                        value: formatEurCents(market.minZeroCents),
+                                        tone: PriceTone.ct,
+                                        compact: true,
                                       ),
                                     if (market.minDirectCents != null)
-                                      _PriceChip(
+                                      PricePill(
                                         label: 'Direct',
-                                        value: formatEurCents(
-                                          market.minDirectCents,
-                                        ),
+                                        value:
+                                            formatEurCents(market.minDirectCents),
+                                        tone: PriceTone.neutral,
+                                        compact: true,
                                       ),
-                                  ],
-                                )
-                              else if (_priceErrors[bpId] != null)
-                                Text(
-                                  'Price unavailable',
-                                  style: TextStyle(
-                                    color: Theme.of(context).colorScheme.error,
-                                    fontSize: 12,
-                                  ),
-                                )
-                              else
-                                Text(
-                                  'Tap for seller prices',
-                                  style: Theme.of(context).textTheme.bodySmall,
-                                ),
-                            ],
-                          ),
-                        ),
-                        Column(
-                          children: [
-                            IconButton(
-                              tooltip: 'Add to watchlist',
-                              icon: const Icon(Icons.add_circle_outline),
-                              onPressed: () => _add(row),
-                            ),
-                            Icon(
-                              expanded
-                                  ? Icons.expand_less
-                                  : Icons.expand_more,
-                            ),
+                                  ] else if (_priceErrors[bpId] != null)
+                                    PricePill(
+                                      label: 'CT',
+                                      value: 'unavailable',
+                                      tone: PriceTone.down,
+                                      compact: true,
+                                    )
+                                  else
+                                    const PricePill(
+                                      label: 'CT',
+                                      value: '…',
+                                      tone: PriceTone.neutral,
+                                      compact: true,
+                                    ),
+                                ],
+                              ),
                           ],
                         ),
-                      ],
-                    ),
+                      ),
+                      Column(
+                        children: [
+                          IconButton.filledTonal(
+                            tooltip: 'Add to watchlist',
+                            icon: const Icon(Icons.add_rounded),
+                            onPressed: () => _add(row),
+                          ),
+                          AnimatedRotation(
+                            turns: expanded ? 0.5 : 0,
+                            duration: const Duration(milliseconds: 220),
+                            child: const Icon(Icons.expand_more_rounded),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                if (expanded) ...[
-                  const Divider(height: 1),
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Best 5 listings',
-                          style: Theme.of(context).textTheme.titleSmall,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          'Zero = CardTrader hub. Direct = seller ships.',
-                          style: Theme.of(context).textTheme.bodySmall,
-                        ),
-                        const SizedBox(height: 8),
-                        if (bpId == null)
-                          const Text('Cannot load CT sellers without a blueprint match.')
-                        else if (loadingPrice && top5.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.all(8),
-                            child: Center(child: CircularProgressIndicator()),
-                          )
-                        else if (top5.isEmpty)
-                          const Text('No live listings found.')
-                        else
-                          ...top5.map(
-                            (l) => ListTile(
-                              dense: true,
-                              contentPadding: EdgeInsets.zero,
-                              title: Text(l.sellerName ?? 'Unknown seller'),
-                              subtitle: Text(
-                                [
-                                  if (l.canSellViaHub) 'Zero',
-                                  if (!l.canSellViaHub) 'Direct',
-                                  if (l.language != null)
-                                    CardLanguages.labelFor(l.language),
-                                  if (l.condition != null) l.condition,
-                                  if (l.foil == true) 'Foil',
-                                  if (l.foil == false) 'Non-foil',
-                                  if (l.quantity != null) 'qty ${l.quantity}',
-                                ].join(' · '),
-                              ),
-                              trailing: Text(
-                                formatEurCents(l.priceCents),
-                                style: Theme.of(context).textTheme.titleSmall,
+              ),
+              AnimatedCrossFade(
+                firstChild: const SizedBox(width: double.infinity),
+                secondChild: Padding(
+                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Divider(height: 1),
+                      const SizedBox(height: 10),
+                      Text(
+                        'Best 5 listings',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Zero = CardTrader hub · Direct = seller ships',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 8),
+                      if (bpId == null)
+                        const Text('Cannot load CT sellers without a blueprint match.')
+                      else if (loadingPrice && top5.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.all(8),
+                          child: Center(child: CircularProgressIndicator()),
+                        )
+                      else if (top5.isEmpty)
+                        const Text('No live listings found.')
+                      else
+                        ...top5.map(
+                          (l) => ListTile(
+                            dense: true,
+                            contentPadding: EdgeInsets.zero,
+                            leading: CircleAvatar(
+                              radius: 14,
+                              backgroundColor: l.canSellViaHub
+                                  ? Theme.of(context)
+                                      .colorScheme
+                                      .primary
+                                      .withValues(alpha: 0.2)
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .secondary
+                                      .withValues(alpha: 0.2),
+                              child: Icon(
+                                l.canSellViaHub
+                                    ? Icons.hub_outlined
+                                    : Icons.local_shipping_outlined,
+                                size: 14,
                               ),
                             ),
+                            title: Text(l.sellerName ?? 'Unknown seller'),
+                            subtitle: Text(
+                              [
+                                if (l.canSellViaHub) 'Zero',
+                                if (!l.canSellViaHub) 'Direct',
+                                if (l.language != null)
+                                  CardLanguages.labelFor(l.language),
+                                if (l.condition != null) l.condition,
+                                if (l.foil == true) 'Foil',
+                                if (l.foil == false) 'Non-foil',
+                                if (l.quantity != null) 'qty ${l.quantity}',
+                              ].join(' · '),
+                            ),
+                            trailing: Text(
+                              formatEurCents(l.priceCents),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleSmall
+                                  ?.copyWith(fontWeight: FontWeight.w800),
+                            ),
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
-                ],
-              ],
-            ),
+                ),
+                crossFadeState: expanded
+                    ? CrossFadeState.showSecond
+                    : CrossFadeState.showFirst,
+                duration: const Duration(milliseconds: 220),
+              ),
+            ],
           ),
         );
       },
@@ -721,23 +885,21 @@ class _ListingFilters extends StatelessWidget {
     required this.language,
     required this.foil,
     required this.minCondition,
-    required this.sellerController,
     required this.minQtyController,
     required this.onLanguageChanged,
     required this.onFoilChanged,
     required this.onMinConditionChanged,
-    required this.onSellerOrQtyChanged,
+    required this.onMinQtyChanged,
   });
 
   final String? language;
   final bool? foil;
   final CardCondition? minCondition;
-  final TextEditingController sellerController;
   final TextEditingController minQtyController;
   final ValueChanged<String?> onLanguageChanged;
   final ValueChanged<bool?> onFoilChanged;
   final ValueChanged<CardCondition?> onMinConditionChanged;
-  final VoidCallback onSellerOrQtyChanged;
+  final VoidCallback onMinQtyChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -745,10 +907,19 @@ class _ListingFilters extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          'Listing filters (also saved when you add to the watchlist)',
-          style: Theme.of(context).textTheme.titleSmall,
+          'Live listing filters',
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
         ),
-        const SizedBox(height: 8),
+        const SizedBox(height: 2),
+        Text(
+          'Saved when you add to the watchlist',
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+        ),
+        const SizedBox(height: 10),
         Row(
           children: [
             Expanded(
@@ -834,22 +1005,6 @@ class _ListingFilters extends StatelessWidget {
         Row(
           children: [
             Expanded(
-              flex: 2,
-              child: TextField(
-                controller: sellerController,
-                decoration: const InputDecoration(
-                  labelText: 'Seller',
-                  hintText: 'Username contains…',
-                  border: OutlineInputBorder(),
-                  isDense: true,
-                ),
-                textInputAction: TextInputAction.search,
-                onSubmitted: (_) => onSellerOrQtyChanged(),
-                onEditingComplete: onSellerOrQtyChanged,
-              ),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
               child: TextField(
                 controller: minQtyController,
                 decoration: const InputDecoration(
@@ -860,51 +1015,18 @@ class _ListingFilters extends StatelessWidget {
                 ),
                 keyboardType: TextInputType.number,
                 textInputAction: TextInputAction.search,
-                onSubmitted: (_) => onSellerOrQtyChanged(),
-                onEditingComplete: onSellerOrQtyChanged,
+                onSubmitted: (_) => onMinQtyChanged(),
+                onEditingComplete: onMinQtyChanged,
               ),
             ),
             IconButton(
-              tooltip: 'Apply seller / qty filters',
-              onPressed: onSellerOrQtyChanged,
+              tooltip: 'Apply min qty filter',
+              onPressed: onMinQtyChanged,
               icon: const Icon(Icons.filter_alt),
             ),
           ],
         ),
       ],
-    );
-  }
-}
-
-class _PriceChip extends StatelessWidget {
-  const _PriceChip({
-    required this.label,
-    required this.value,
-    this.emphasize = false,
-  });
-
-  final String label;
-  final String value;
-  final bool emphasize;
-
-  @override
-  Widget build(BuildContext context) {
-    final scheme = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: emphasize
-            ? scheme.primaryContainer
-            : scheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Text(
-        '$label $value',
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: emphasize ? scheme.onPrimaryContainer : null,
-              fontWeight: emphasize ? FontWeight.w600 : null,
-            ),
-      ),
     );
   }
 }

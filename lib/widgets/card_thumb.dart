@@ -7,17 +7,22 @@ class CardThumb extends StatelessWidget {
     required this.url,
     this.width = 56,
     this.height = 78,
+    this.heroTag,
+    this.elevated = true,
   });
 
   final String? url;
   final double width;
   final double height;
+  final Object? heroTag;
+  final bool elevated;
 
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(6),
+    final radius = BorderRadius.circular(width > 80 ? 14 : 10);
+    Widget image = ClipRRect(
+      borderRadius: radius,
       child: SizedBox(
         width: width,
         height: height,
@@ -25,8 +30,8 @@ class CardThumb extends StatelessWidget {
             ? ColoredBox(
                 color: scheme.surfaceContainerHighest,
                 child: Icon(
-                  Icons.image_not_supported_outlined,
-                  size: width * 0.35,
+                  Icons.style_outlined,
+                  size: width * 0.32,
                   color: scheme.onSurfaceVariant,
                 ),
               )
@@ -37,7 +42,7 @@ class CardThumb extends StatelessWidget {
                   color: scheme.surfaceContainerHighest,
                   child: Icon(
                     Icons.broken_image_outlined,
-                    size: width * 0.35,
+                    size: width * 0.32,
                     color: scheme.onSurfaceVariant,
                   ),
                 ),
@@ -56,6 +61,31 @@ class CardThumb extends StatelessWidget {
                 },
               ),
       ),
+    );
+
+    if (heroTag != null) {
+      image = Hero(tag: heroTag!, child: image);
+    }
+
+    if (!elevated) return image;
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.35),
+            blurRadius: 12,
+            offset: const Offset(0, 6),
+          ),
+          BoxShadow(
+            color: scheme.primary.withValues(alpha: 0.12),
+            blurRadius: 16,
+            spreadRadius: -2,
+          ),
+        ],
+      ),
+      child: image,
     );
   }
 }

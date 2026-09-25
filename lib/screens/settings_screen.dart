@@ -7,6 +7,7 @@ import '../services/cardmarket_ingest.dart';
 import '../services/cardtrader_client.dart';
 import '../services/secure_token_store.dart';
 import '../services/sync_service.dart';
+import '../widgets/ui_kit.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -101,147 +102,184 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final db = context.watch<AppDatabase>();
 
     return Scaffold(
+      backgroundColor: Colors.transparent,
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
         children: [
-          Text('CardTrader', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _tokenController,
-            obscureText: _obscure,
-            decoration: InputDecoration(
-              labelText: 'Bearer token',
-              helperText: _tokenHint ??
-                  'From CardTrader profile settings → API token',
-              border: const OutlineInputBorder(),
-              suffixIcon: IconButton(
-                icon: Icon(_obscure ? Icons.visibility : Icons.visibility_off),
-                onPressed: () => setState(() => _obscure = !_obscure),
-              ),
+          const SectionHeader(
+            title: 'CardTrader',
+            subtitle: 'Live marketplace API token',
+          ),
+          GlowCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                TextField(
+                  controller: _tokenController,
+                  obscureText: _obscure,
+                  decoration: InputDecoration(
+                    labelText: 'Bearer token',
+                    helperText: _tokenHint ??
+                        'From CardTrader profile settings → API token',
+                    suffixIcon: IconButton(
+                      icon: Icon(
+                        _obscure ? Icons.visibility : Icons.visibility_off,
+                      ),
+                      onPressed: () => setState(() => _obscure = !_obscure),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton(
+                      onPressed: _busy ? null : _saveToken,
+                      child: const Text('Save token'),
+                    ),
+                    OutlinedButton(
+                      onPressed: _busy ? null : _testToken,
+                      child: const Text('Test token'),
+                    ),
+                    TextButton(
+                      onPressed: _busy
+                          ? null
+                          : () async {
+                              await context
+                                  .read<SecureTokenStore>()
+                                  .clearCardTraderToken();
+                              _tokenController.clear();
+                              setState(() => _tokenHint = 'Token cleared');
+                            },
+                      child: const Text('Clear'),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            children: [
-              FilledButton(
-                onPressed: _busy ? null : _saveToken,
-                child: const Text('Save token'),
-              ),
-              OutlinedButton(
-                onPressed: _busy ? null : _testToken,
-                child: const Text('Test token'),
-              ),
-              TextButton(
-                onPressed: _busy
-                    ? null
-                    : () async {
-                        await context.read<SecureTokenStore>().clearCardTraderToken();
-                        _tokenController.clear();
-                        setState(() => _tokenHint = 'Token cleared');
-                      },
-                child: const Text('Clear'),
-              ),
-            ],
+          const SizedBox(height: 18),
+          const SectionHeader(
+            title: 'Cardmarket guides',
+            subtitle: 'Daily reference prices',
           ),
-          const SizedBox(height: 24),
-          Text('Cardmarket guides', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(
-            _cmStatus == null
-                ? 'Checking cache…'
-                : _cmStatus!.ready
-                    ? 'Cached. Products: ${_fmt(_cmStatus!.productsModified)}; '
-                        'Guide: ${_fmt(_cmStatus!.priceGuideModified)}'
-                    : 'No local guides yet — download or import CSV/JSON.',
+          GlowCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  _cmStatus == null
+                      ? 'Checking cache…'
+                      : _cmStatus!.ready
+                          ? 'Cached. Products: ${_fmt(_cmStatus!.productsModified)}; '
+                              'Guide: ${_fmt(_cmStatus!.priceGuideModified)}'
+                          : 'No local guides yet — download or import CSV/JSON.',
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton.tonal(
+                      onPressed: _busy
+                          ? null
+                          : () => _run(() async {
+                                final outcome = await sync.syncCardmarketGuides(
+                                  onProgress: (m) =>
+                                      setState(() => _status = m),
+                                );
+                                setState(() => _status = outcome.message);
+                              }),
+                      child: const Text('Download & apply CM guides'),
+                    ),
+                    OutlinedButton(
+                      onPressed: _busy ? null : _importCmFiles,
+                      child: const Text('Import CM files'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton.tonal(
-                onPressed: _busy
-                    ? null
-                    : () => _run(() async {
-                          final outcome = await sync.syncCardmarketGuides(
-                            onProgress: (m) => setState(() => _status = m),
-                          );
-                          setState(() => _status = outcome.message);
-                        }),
-                child: const Text('Download & apply CM guides'),
-              ),
-              OutlinedButton(
-                onPressed: _busy ? null : _importCmFiles,
-                child: const Text('Import CM files'),
-              ),
-            ],
+          const SizedBox(height: 18),
+          const SectionHeader(
+            title: 'Sync',
+            subtitle: 'Refresh watchlist prices',
           ),
-          const SizedBox(height: 24),
-          Text('Sync', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              FilledButton(
-                onPressed: _busy
-                    ? null
-                    : () => _run(() async {
-                          final outcome = await sync.syncAll(
-                            onProgress: (m) => setState(() => _status = m),
-                          );
-                          setState(() => _status = outcome.message);
-                        }),
-                child: const Text('Sync now'),
-              ),
-              OutlinedButton(
-                onPressed: _busy
-                    ? null
-                    : () => _run(() async {
-                          final outcome = await sync.syncCardTraderWatchlist(
-                            onProgress: (m) => setState(() => _status = m),
-                          );
-                          setState(() => _status = outcome.message);
-                        }),
-                child: const Text('CT watchlist only'),
-              ),
-            ],
+          GlowCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    FilledButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _run(() async {
+                                final outcome = await sync.syncAll(
+                                  onProgress: (m) =>
+                                      setState(() => _status = m),
+                                );
+                                setState(() => _status = outcome.message);
+                              }),
+                      child: const Text('Sync now'),
+                    ),
+                    OutlinedButton(
+                      onPressed: _busy
+                          ? null
+                          : () => _run(() async {
+                                final outcome =
+                                    await sync.syncCardTraderWatchlist(
+                                  onProgress: (m) =>
+                                      setState(() => _status = m),
+                                );
+                                setState(() => _status = outcome.message);
+                              }),
+                      child: const Text('CT watchlist only'),
+                    ),
+                  ],
+                ),
+                if (_busy) ...[
+                  const SizedBox(height: 16),
+                  const LinearProgressIndicator(),
+                ],
+                if (_status != null) ...[
+                  const SizedBox(height: 12),
+                  Text(_status!),
+                ],
+              ],
+            ),
           ),
-          if (_busy) ...[
-            const SizedBox(height: 16),
-            const LinearProgressIndicator(),
-          ],
-          if (_status != null) ...[
-            const SizedBox(height: 12),
-            Text(_status!),
-          ],
-          const SizedBox(height: 24),
-          Text('Recent sync runs', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          StreamBuilder<List<SyncRun>>(
-            stream: db.watchRecentSyncRuns(),
-            builder: (context, snapshot) {
-              final runs = snapshot.data ?? [];
-              if (runs.isEmpty) return const Text('No syncs yet.');
-              return Column(
-                children: runs
-                    .map(
-                      (r) => ListTile(
-                        dense: true,
-                        contentPadding: EdgeInsets.zero,
-                        title: Text('${r.source} · ${r.status}'),
-                        subtitle: Text(
-                          '${r.startedAt.toLocal()} · ${r.message}',
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
+          const SizedBox(height: 18),
+          const SectionHeader(title: 'Recent sync runs'),
+          GlowCard(
+            child: StreamBuilder<List<SyncRun>>(
+              stream: db.watchRecentSyncRuns(),
+              builder: (context, snapshot) {
+                final runs = snapshot.data ?? [];
+                if (runs.isEmpty) return const Text('No syncs yet.');
+                return Column(
+                  children: runs
+                      .map(
+                        (r) => ListTile(
+                          dense: true,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text('${r.source} · ${r.status}'),
+                          subtitle: Text(
+                            '${r.startedAt.toLocal()} · ${r.message}',
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                    )
-                    .toList(),
-              );
-            },
+                      )
+                      .toList(),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -268,13 +306,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final sync = context.read<SyncService>();
     await _run(() async {
       final outcome = await sync.syncCardmarketGuides(
-            download: false,
-            productsPath: productsPath,
-            priceGuidePath: guidePath,
-            onProgress: (m) {
-              if (mounted) setState(() => _status = m);
-            },
-          );
+        download: false,
+        productsPath: productsPath,
+        priceGuidePath: guidePath,
+        onProgress: (m) {
+          if (mounted) setState(() => _status = m);
+        },
+      );
       if (mounted) setState(() => _status = outcome.message);
     });
   }

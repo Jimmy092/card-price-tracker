@@ -103,6 +103,183 @@ class CardmarketIngest {
     );
   }
 
+  Map<int, CmProduct>? _productsCache;
+  Map<int, CmPriceGuide>? _guidesCache;
+  Map<String, List<CmProduct>>? _productsByName;
+
+  /// Loads (and caches) catalogue + guide for fast name → trend lookups.
+  Future<bool> ensureLookupReady({bool forceReload = false}) async {
+    if (!forceReload &&
+        _productsCache != null &&
+        _guidesCache != null &&
+        _productsByName != null) {
+      return true;
+    }
+    final status = await cacheStatus();
+    if (!status.ready) return false;
+    final products = await loadProducts();
+    final guides = await loadPriceGuide();
+    final byName = <String, List<CmProduct>>{};
+    for (final p in products.values) {
+      final key = p.name.trim().toLowerCase();
+      if (key.isEmpty) continue;
+      (byName[key] ??= []).add(p);
+    }
+    _productsCache = products;
+    _guidesCache = guides;
+    _productsByName = byName;
+    return true;
+  }
+
+  /// Exact product-id lookup (preferred — one printing = one CM product).
+  int? trendCentsForProductId(int productId, {bool? foil}) {
+    final guides = _guidesCache;
+    if (guides == null) return null;
+    final guide = guides[productId];
+    if (guide == null) return null;
+    return guide.centsFor(foil: foil).trend;
+  }
+
+  /// Cardmarket "From" price (guide `low` / `low-foil`) for a product id.
+  int? fromCentsForProductId(int productId, {bool? foil}) {
+    final guides = _guidesCache;
+    if (guides == null) return null;
+    final guide = guides[productId];
+    if (guide == null) return null;
+    return guide.centsFor(foil: foil).low;
+  }
+
+  /// Cardmarket "From" price (EUR cents) for a printing — guide low / low-foil.
+  int? fromCentsForPrinting({
+    required String name,
+    String? collectorNumber,
+    String? setName,
+    bool? foil,
+    int? preferNearCents,
+    int? cardmarketId,
+  }) {
+    if (cardmarketId != null) {
+      final exact = fromCentsForProductId(cardmarketId, foil: foil);
+      if (exact != null) return exact;
+    }
+
+    final byName = _productsByName;
+    final guides = _guidesCache;
+    if (byName == null || guides == null) return null;
+    final products = byName[name.trim().toLowerCase()];
+    if (products == null || products.isEmpty) return null;
+
+    final match = _bestProductMatch(
+      products,
+      guides: guides,
+      collectorNumber: collectorNumber,
+      setName: setName,
+      foil: foil,
+      preferNearCents: preferNearCents,
+      useLowForAnchor: true,
+    );
+    final guide = guides[match.idProduct];
+    if (guide == null) return null;
+    return guide.centsFor(foil: foil).low;
+  }
+
+  /// Cardmarket trend (EUR cents) for a printing.
+  ///
+  /// Prefer [cardmarketId] from Scryfall when available (exact Alpha vs Secret
+  /// Lair, etc.). Otherwise fall back to name matching heuristics.
+  int? trendCentsForPrinting({
+    required String name,
+    String? collectorNumber,
+    String? setName,
+    bool? foil,
+    int? preferNearCents,
+    int? cardmarketId,
+  }) {
+    if (cardmarketId != null) {
+      final exact = trendCentsForProductId(cardmarketId, foil: foil);
+      if (exact != null) return exact;
+    }
+
+    final byName = _productsByName;
+    final guides = _guidesCache;
+    if (byName == null || guides == null) return null;
+    final products = byName[name.trim().toLowerCase()];
+    if (products == null || products.isEmpty) return null;
+
+    final match = _bestProductMatch(
+      products,
+      guides: guides,
+      collectorNumber: collectorNumber,
+      setName: setName,
+      foil: foil,
+      preferNearCents: preferNearCents,
+    );
+    final guide = guides[match.idProduct];
+    if (guide == null) return null;
+    return guide.centsFor(foil: foil).trend;
+  }
+
+  /// Legacy helper — name only (may pick the wrong expansion).
+  int? trendCentsForName(String name, {bool? foil}) => trendCentsForPrinting(
+        name: name,
+        foil: foil,
+      );
+
+  CmProduct _bestProductMatch(
+    List<CmProduct> products, {
+    required Map<int, CmPriceGuide> guides,
+    String? collectorNumber,
+    String? setName,
+    bool? foil,
+    int? preferNearCents,
+    bool useLowForAnchor = false,
+  }) {
+    final numKey = _normalizeCollectorNumber(collectorNumber);
+    if (numKey != null) {
+      for (final p in products) {
+        if (_normalizeCollectorNumber(p.number) == numKey) return p;
+      }
+    }
+    final setKey = setName?.trim().toLowerCase();
+    if (setKey != null && setKey.isNotEmpty) {
+      for (final p in products) {
+        final hay = '${p.categoryName} ${p.name}'.toLowerCase();
+        if (hay.contains(setKey)) return p;
+      }
+    }
+
+    // Disambiguate reprints by picking the CM price closest to a live CT price.
+    if (preferNearCents != null && products.length > 1) {
+      CmProduct? best;
+      var bestDist = 1 << 30;
+      for (final p in products) {
+        final cents = guides[p.idProduct]?.centsFor(foil: foil);
+        final value = useLowForAnchor ? cents?.low : cents?.trend;
+        if (value == null) continue;
+        final dist = (value - preferNearCents).abs();
+        if (dist < bestDist) {
+          bestDist = dist;
+          best = p;
+        }
+      }
+      if (best != null) return best;
+    }
+
+    return products.first;
+  }
+
+  static String? _normalizeCollectorNumber(String? raw) {
+    if (raw == null) return null;
+    final t = raw.trim().toLowerCase();
+    if (t.isEmpty) return null;
+    // Strip leading zeros for numeric-only numbers ("012" → "12") but keep
+    // alphanumeric codes like "12a" / "220★".
+    if (RegExp(r'^\d+$').hasMatch(t)) {
+      return int.parse(t).toString();
+    }
+    return t;
+  }
+
   Future<int> _countProductsJson(File file) async {
     final map = await loadProducts(overridePath: file.path);
     return map.length;
@@ -130,6 +307,8 @@ class CardmarketIngest {
         name: item['name'] as String? ?? '',
         expansionId: item['idExpansion'] as int? ?? 0,
         categoryName: item['categoryName'] as String? ?? '',
+        number: (item['number'] ?? item['collectorNumber'] ?? item['collectorsNumber'])
+            ?.toString(),
       );
     }
     return out;
@@ -175,6 +354,7 @@ class CardmarketIngest {
     final idIdx = _col(header, ['idProduct', 'id_product']);
     final nameIdx = _col(header, ['Name', 'name']);
     final expIdx = _col(header, ['Expansion ID', 'idExpansion', 'Expansion']);
+    final numIdx = _col(header, ['Number', 'number', 'Collectors Number']);
     final out = <int, CmProduct>{};
     for (final row in rows.skip(1)) {
       if (row.length <= idIdx) continue;
@@ -186,6 +366,9 @@ class CardmarketIngest {
         expansionId: expIdx >= 0 && expIdx < row.length
             ? int.tryParse(row[expIdx].toString()) ?? 0
             : 0,
+        number: numIdx >= 0 && numIdx < row.length
+            ? row[numIdx].toString()
+            : null,
       );
     }
     return out;
@@ -257,11 +440,14 @@ class CmProduct {
     required this.name,
     required this.expansionId,
     this.categoryName = '',
+    this.number,
   });
   final int idProduct;
   final String name;
   final int expansionId;
   final String categoryName;
+  /// Collector number within the expansion, when present in the catalogue.
+  final String? number;
 }
 
 class CmPriceGuide {

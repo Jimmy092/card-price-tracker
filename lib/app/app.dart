@@ -9,6 +9,7 @@ import '../services/scryfall_client.dart';
 import '../services/secure_token_store.dart';
 import '../services/sync_service.dart';
 import 'router.dart';
+import 'theme.dart';
 
 class CardPriceApp extends StatefulWidget {
   const CardPriceApp({super.key});
@@ -57,13 +58,8 @@ class _CardPriceAppState extends State<CardPriceApp> {
       ],
       child: MaterialApp.router(
         title: 'Card Price Tracker',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(
-            seedColor: const Color(0xFF1B4D3E),
-            brightness: Brightness.light,
-          ),
-          useMaterial3: true,
-        ),
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.dark(),
         routerConfig: _router,
       ),
     );

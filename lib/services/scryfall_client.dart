@@ -73,6 +73,7 @@ class ScryfallPrinting {
     required this.collectorNumber,
     this.imageUrl,
     this.releasedAt,
+    this.cardmarketId,
   });
 
   factory ScryfallPrinting.fromJson(Map<String, dynamic> json) {
@@ -103,6 +104,7 @@ class ScryfallPrinting {
       collectorNumber: json['collector_number'] as String? ?? '',
       imageUrl: image,
       releasedAt: json['released_at'] as String?,
+      cardmarketId: json['cardmarket_id'] as int?,
     );
   }
 
@@ -113,4 +115,6 @@ class ScryfallPrinting {
   final String collectorNumber;
   final String? imageUrl;
   final String? releasedAt;
+  /// Exact Cardmarket product id for this printing (when Scryfall has it).
+  final int? cardmarketId;
 }
