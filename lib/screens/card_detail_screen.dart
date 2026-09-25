@@ -69,8 +69,8 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
             ),
             body: card == null
                 ? const Center(child: CircularProgressIndicator())
-                : FutureBuilder<List<PriceSnapshot>>(
-                    future: db.snapshotsForCard(widget.cardId),
+                : StreamBuilder<List<PriceSnapshot>>(
+                    stream: db.watchSnapshotsForCard(widget.cardId),
                     builder: (context, snap) {
                       final all = snap.data ?? [];
                       final cm = all
@@ -253,13 +253,14 @@ class _CardDetailScreenState extends State<CardDetailScreen> {
                                 ),
                                 const SizedBox(height: 20),
                                 const SectionHeader(
-                                  title: 'History',
-                                  subtitle: 'CM and CT as separate series',
+                                  title: 'Last 30 days',
+                                  subtitle: 'CM trend · CT best price slope',
                                 ),
                                 GlowCard(
                                   child: DualPriceChart(
                                     cmSnapshots: cm,
                                     ctSnapshots: ct,
+                                    latestCm: latestCm,
                                   ),
                                 ),
                               ],

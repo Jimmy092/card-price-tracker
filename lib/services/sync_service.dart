@@ -23,31 +23,29 @@ class SyncService {
     final runId = await db.startSyncRun('cardtrader');
     var count = 0;
     try {
-      final entries = (await db.allWatchlistEntries())
+      final entries = (await db.allPriceSyncTargets(onlyCardId: onlyCardId))
           .where((e) => e.card.cardTraderBlueprintId != null)
-          .where((e) => onlyCardId == null || e.card.id == onlyCardId)
           .toList();
       onProgress?.call('Syncing ${entries.length} CardTrader blueprints…');
 
       for (final entry in entries) {
         final card = entry.card;
-        final item = entry.item;
         final bp = card.cardTraderBlueprintId!;
-        final minCond = CardCondition.tryParse(item.minCondition);
-        final foilLabel = item.foil == true
+        final minCond = CardCondition.tryParse(entry.minCondition);
+        final foilLabel = entry.foil == true
             ? 'foil'
-            : item.foil == false
+            : entry.foil == false
                 ? 'non-foil'
                 : 'any foil';
         onProgress?.call('CT: ${card.name} ($foilLabel)');
 
         final summary = await ct.marketplaceForBlueprint(
           bp,
-          foil: item.foil,
-          language: item.language,
+          foil: entry.foil,
+          language: entry.language,
           minCondition: minCond,
-          sellerName: item.sellerName,
-          minQuantity: item.minSellerQuantity,
+          sellerName: entry.sellerName,
+          minQuantity: entry.minSellerQuantity,
         );
 
         // Backfill image from CT blueprint when missing.
@@ -129,9 +127,8 @@ class SyncService {
       onProgress?.call('Loading Cardmarket price guide…');
       final guides = await cm.loadPriceGuide(overridePath: priceGuidePath);
 
-      final entries = (await db.allWatchlistEntries())
-          .where((e) => onlyCardId == null || e.card.id == onlyCardId)
-          .toList();
+      final entries =
+          await db.allPriceSyncTargets(onlyCardId: onlyCardId);
 
       // cardId -> entry (for foil preference when writing snapshots)
       final byCardId = {for (final e in entries) e.card.id: e};
@@ -168,7 +165,7 @@ class SyncService {
         final card = mapEntry.value;
         final guide = guides[productId];
         if (guide == null) continue;
-        final foilPref = byCardId[card.id]?.item.foil;
+        final foilPref = byCardId[card.id]?.foil;
         final cents = guide.centsFor(foil: foilPref);
         await db.into(db.priceSnapshots).insert(
               PriceSnapshotsCompanion.insert(
@@ -189,11 +186,11 @@ class SyncService {
         runId,
         status: 'ok',
         message:
-            'CM snapshots for $count watchlist cards (${products.length} products, ${guides.length} prices cached)',
+            'CM snapshots for $count cards (${products.length} products, ${guides.length} prices cached)',
         itemCount: count,
       );
       return SyncOutcome.ok(
-        'Cardmarket: $count watchlist prices updated',
+        'Cardmarket: $count prices updated',
       );
     } catch (e) {
       await db.finishSyncRun(
@@ -206,7 +203,7 @@ class SyncService {
     }
   }
 
-  /// Refresh CT + CM prices for one watchlist card (used right after Add).
+  /// Refresh CT + CM prices for one card (watchlist or tracking add).
   Future<SyncOutcome> syncWatchlistCard(
     int cardId, {
     void Function(String message)? onProgress,

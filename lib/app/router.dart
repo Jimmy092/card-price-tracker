@@ -5,6 +5,7 @@ import '../screens/reports_screen.dart';
 import '../screens/search_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/shell_scaffold.dart';
+import '../screens/portfolio_screen.dart';
 import '../screens/watchlist_screen.dart';
 
 GoRouter buildAppRouter() {
@@ -21,6 +22,14 @@ GoRouter buildAppRouter() {
               GoRoute(
                 path: '/watchlist',
                 builder: (context, state) => const WatchlistScreen(),
+              ),
+            ],
+          ),
+          StatefulShellBranch(
+            routes: [
+              GoRoute(
+                path: '/portfolio',
+                builder: (context, state) => const PortfolioScreen(),
               ),
             ],
           ),

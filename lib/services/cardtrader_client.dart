@@ -22,6 +22,10 @@ class CardTraderClient {
 
   /// In-memory blueprint cache keyed by expansion id.
   final Map<int, List<CtBlueprint>> _blueprintCache = {};
+  /// Scryfall id → blueprint, built when an expansion is exported.
+  final Map<String, CtBlueprint> _blueprintByScryfallId = {};
+  /// In-flight expansion exports so parallel callers share one request.
+  final Map<int, Future<List<CtBlueprint>>> _blueprintInflight = {};
   List<CtExpansion>? _mtgExpansionsCache;
   Map<String, CtExpansion>? _expansionsByCode;
 
@@ -73,24 +77,107 @@ class CardTraderClient {
     final expansion = await expansionForSetCode(setCode);
     if (expansion == null) return null;
     final blueprints = await listBlueprints(expansion.id);
+    return _matchBlueprint(
+      blueprints,
+      expansionName: expansion.name,
+      cardName: cardName,
+      scryfallId: scryfallId,
+    );
+  }
+
+  /// Resolve many Scryfall printings at once.
+  ///
+  /// Groups by unique set code, fetches each expansion export in parallel
+  /// (bounded concurrency), then matches locally — much faster than
+  /// one-by-one [blueprintForPrinting] for heavily reprinted cards.
+  Future<List<CtBlueprint?>> blueprintsForPrintings(
+    List<({String setCode, String cardName, String? scryfallId})> printings, {
+    int concurrency = 6,
+  }) async {
+    if (printings.isEmpty) return const [];
+    await listMtgExpansions();
+
+    final uniqueCodes = <String>{};
+    for (final p in printings) {
+      final code = p.setCode.trim().toLowerCase();
+      if (code.isNotEmpty) uniqueCodes.add(code);
+    }
+
+    final expansionIds = <int>[];
+    final seenExp = <int>{};
+    for (final code in uniqueCodes) {
+      final exp = _expansionsByCode?[code];
+      if (exp != null && seenExp.add(exp.id)) {
+        expansionIds.add(exp.id);
+      }
+    }
+
+    await _mapPool(
+      expansionIds,
+      concurrency: concurrency,
+      fn: (id) async {
+        await listBlueprints(id);
+      },
+    );
+
+    return [
+      for (final p in printings)
+        _resolveCachedPrinting(
+          setCode: p.setCode,
+          cardName: p.cardName,
+          scryfallId: p.scryfallId,
+        ),
+    ];
+  }
+
+  CtBlueprint? _resolveCachedPrinting({
+    required String setCode,
+    required String cardName,
+    String? scryfallId,
+  }) {
+    if (scryfallId != null && scryfallId.isNotEmpty) {
+      final byId = _blueprintByScryfallId[scryfallId];
+      if (byId != null) {
+        final exp = _expansionsByCode?[setCode.toLowerCase()];
+        return exp != null ? byId.copyWithExpansionName(exp.name) : byId;
+      }
+    }
+    final expansion = _expansionsByCode?[setCode.toLowerCase()];
+    if (expansion == null) return null;
+    final blueprints = _blueprintCache[expansion.id];
+    if (blueprints == null) return null;
+    return _matchBlueprint(
+      blueprints,
+      expansionName: expansion.name,
+      cardName: cardName,
+      scryfallId: scryfallId,
+    );
+  }
+
+  CtBlueprint? _matchBlueprint(
+    List<CtBlueprint> blueprints, {
+    required String expansionName,
+    required String cardName,
+    String? scryfallId,
+  }) {
     if (scryfallId != null && scryfallId.isNotEmpty) {
       for (final b in blueprints) {
         if (b.scryfallId == scryfallId) {
-          return b.copyWithExpansionName(expansion.name);
+          return b.copyWithExpansionName(expansionName);
         }
       }
     }
     final target = cardName.toLowerCase();
     for (final b in blueprints) {
       if (b.name.toLowerCase() == target) {
-        return b.copyWithExpansionName(expansion.name);
+        return b.copyWithExpansionName(expansionName);
       }
     }
     // Split card faces: "Fire // Ice" vs front face only.
     final front = target.split('//').first.trim();
     for (final b in blueprints) {
       if (b.name.toLowerCase() == front) {
-        return b.copyWithExpansionName(expansion.name);
+        return b.copyWithExpansionName(expansionName);
       }
     }
     return null;
@@ -103,18 +190,101 @@ class CardTraderClient {
     if (!forceRefresh && _blueprintCache.containsKey(expansionId)) {
       return _blueprintCache[expansionId]!;
     }
-    await _auth();
-    final res = await _dio.get<List<dynamic>>(
-      '/blueprints/export',
-      queryParameters: {'expansion_id': expansionId},
+    final inflight = _blueprintInflight[expansionId];
+    if (!forceRefresh && inflight != null) return inflight;
+
+    final future = () async {
+      await _auth();
+      final res = await _dio.get<List<dynamic>>(
+        '/blueprints/export',
+        queryParameters: {'expansion_id': expansionId},
+      );
+      final list = (res.data ?? [])
+          .whereType<Map<String, dynamic>>()
+          .map(CtBlueprint.fromJson)
+          .toList()
+        ..sort((a, b) => a.name.compareTo(b.name));
+      _blueprintCache[expansionId] = list;
+      for (final b in list) {
+        final sid = b.scryfallId;
+        if (sid != null && sid.isNotEmpty) {
+          _blueprintByScryfallId[sid] = b;
+        }
+      }
+      return list;
+    }();
+
+    _blueprintInflight[expansionId] = future;
+    try {
+      return await future;
+    } finally {
+      _blueprintInflight.remove(expansionId);
+    }
+  }
+
+  /// Fetch marketplace summaries for many blueprints with bounded concurrency.
+  Future<Map<int, CtMarketplaceSummary>> marketplacesForBlueprints(
+    Iterable<int> blueprintIds, {
+    bool? foil,
+    String? language,
+    CardCondition? minCondition,
+    String? sellerName,
+    int? minQuantity,
+    int concurrency = 5,
+    bool Function()? shouldContinue,
+    void Function(int blueprintId, CtMarketplaceSummary summary)? onEach,
+    void Function(int blueprintId, Object error)? onError,
+  }) async {
+    final ids = blueprintIds.toList();
+    final out = <int, CtMarketplaceSummary>{};
+    await _mapPool(
+      ids,
+      concurrency: concurrency,
+      fn: (id) async {
+        if (shouldContinue != null && !shouldContinue()) return;
+        try {
+          final summary = await marketplaceForBlueprint(
+            id,
+            foil: foil,
+            language: language,
+            minCondition: minCondition,
+            sellerName: sellerName,
+            minQuantity: minQuantity,
+          );
+          if (shouldContinue != null && !shouldContinue()) return;
+          out[id] = summary;
+          onEach?.call(id, summary);
+        } catch (e) {
+          onError?.call(id, e);
+        }
+      },
     );
-    final list = (res.data ?? [])
-        .whereType<Map<String, dynamic>>()
-        .map(CtBlueprint.fromJson)
-        .toList()
-      ..sort((a, b) => a.name.compareTo(b.name));
-    _blueprintCache[expansionId] = list;
-    return list;
+    return out;
+  }
+
+  /// Run [fn] over [items] with at most [concurrency] in flight.
+  Future<void> _mapPool<T>(
+    List<T> items, {
+    required int concurrency,
+    required Future<void> Function(T item) fn,
+  }) async {
+    if (items.isEmpty) return;
+    final limit = concurrency < 1 ? 1 : concurrency;
+    var next = 0;
+    Future<void> worker() async {
+      while (true) {
+        final i = next++;
+        if (i >= items.length) return;
+        await fn(items[i]);
+      }
+    }
+
+    await Future.wait(
+      List.generate(
+        limit < items.length ? limit : items.length,
+        (_) => worker(),
+      ),
+    );
   }
 
   /// Instant local filter against a cached expansion (load once, suggest as user types).

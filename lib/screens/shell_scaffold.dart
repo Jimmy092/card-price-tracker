@@ -29,6 +29,11 @@ class ShellScaffold extends StatelessWidget {
               label: 'Watchlist',
             ),
             NavigationDestination(
+              icon: Icon(Icons.account_balance_wallet_outlined),
+              selectedIcon: Icon(Icons.account_balance_wallet),
+              label: 'Portfolio',
+            ),
+            NavigationDestination(
               icon: Icon(Icons.travel_explore_outlined),
               selectedIcon: Icon(Icons.travel_explore),
               label: 'Search',

@@ -1643,6 +1643,612 @@ class WatchlistItemsCompanion extends UpdateCompanion<WatchlistItem> {
   }
 }
 
+class $TrackedItemsTable extends TrackedItems
+    with TableInfo<$TrackedItemsTable, TrackedItem> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $TrackedItemsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<int> id = GeneratedColumn<int>(
+    'id',
+    aliasedName,
+    false,
+    hasAutoIncrement: true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'PRIMARY KEY AUTOINCREMENT',
+    ),
+  );
+  static const VerificationMeta _cardIdMeta = const VerificationMeta('cardId');
+  @override
+  late final GeneratedColumn<int> cardId = GeneratedColumn<int>(
+    'card_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'REFERENCES cards (id)',
+    ),
+  );
+  static const VerificationMeta _quantityMeta = const VerificationMeta(
+    'quantity',
+  );
+  @override
+  late final GeneratedColumn<int> quantity = GeneratedColumn<int>(
+    'quantity',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(1),
+  );
+  static const VerificationMeta _paidCentsMeta = const VerificationMeta(
+    'paidCents',
+  );
+  @override
+  late final GeneratedColumn<int> paidCents = GeneratedColumn<int>(
+    'paid_cents',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _purchasedAtMeta = const VerificationMeta(
+    'purchasedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> purchasedAt = GeneratedColumn<DateTime>(
+    'purchased_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _foilMeta = const VerificationMeta('foil');
+  @override
+  late final GeneratedColumn<bool> foil = GeneratedColumn<bool>(
+    'foil',
+    aliasedName,
+    true,
+    type: DriftSqlType.bool,
+    requiredDuringInsert: false,
+    defaultConstraints: GeneratedColumn.constraintIsAlways(
+      'CHECK ("foil" IN (0, 1))',
+    ),
+  );
+  static const VerificationMeta _languageMeta = const VerificationMeta(
+    'language',
+  );
+  @override
+  late final GeneratedColumn<String> language = GeneratedColumn<String>(
+    'language',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _conditionMeta = const VerificationMeta(
+    'condition',
+  );
+  @override
+  late final GeneratedColumn<String> condition = GeneratedColumn<String>(
+    'condition',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
+  static const VerificationMeta _notesMeta = const VerificationMeta('notes');
+  @override
+  late final GeneratedColumn<String> notes = GeneratedColumn<String>(
+    'notes',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(''),
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [
+    id,
+    cardId,
+    quantity,
+    paidCents,
+    purchasedAt,
+    foil,
+    language,
+    condition,
+    notes,
+    createdAt,
+  ];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'tracked_items';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<TrackedItem> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    }
+    if (data.containsKey('card_id')) {
+      context.handle(
+        _cardIdMeta,
+        cardId.isAcceptableOrUnknown(data['card_id']!, _cardIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_cardIdMeta);
+    }
+    if (data.containsKey('quantity')) {
+      context.handle(
+        _quantityMeta,
+        quantity.isAcceptableOrUnknown(data['quantity']!, _quantityMeta),
+      );
+    }
+    if (data.containsKey('paid_cents')) {
+      context.handle(
+        _paidCentsMeta,
+        paidCents.isAcceptableOrUnknown(data['paid_cents']!, _paidCentsMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_paidCentsMeta);
+    }
+    if (data.containsKey('purchased_at')) {
+      context.handle(
+        _purchasedAtMeta,
+        purchasedAt.isAcceptableOrUnknown(
+          data['purchased_at']!,
+          _purchasedAtMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_purchasedAtMeta);
+    }
+    if (data.containsKey('foil')) {
+      context.handle(
+        _foilMeta,
+        foil.isAcceptableOrUnknown(data['foil']!, _foilMeta),
+      );
+    }
+    if (data.containsKey('language')) {
+      context.handle(
+        _languageMeta,
+        language.isAcceptableOrUnknown(data['language']!, _languageMeta),
+      );
+    }
+    if (data.containsKey('condition')) {
+      context.handle(
+        _conditionMeta,
+        condition.isAcceptableOrUnknown(data['condition']!, _conditionMeta),
+      );
+    }
+    if (data.containsKey('notes')) {
+      context.handle(
+        _notesMeta,
+        notes.isAcceptableOrUnknown(data['notes']!, _notesMeta),
+      );
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  TrackedItem map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return TrackedItem(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}id'],
+      )!,
+      cardId: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}card_id'],
+      )!,
+      quantity: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}quantity'],
+      )!,
+      paidCents: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}paid_cents'],
+      )!,
+      purchasedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}purchased_at'],
+      )!,
+      foil: attachedDatabase.typeMapping.read(
+        DriftSqlType.bool,
+        data['${effectivePrefix}foil'],
+      ),
+      language: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}language'],
+      ),
+      condition: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}condition'],
+      ),
+      notes: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}notes'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $TrackedItemsTable createAlias(String alias) {
+    return $TrackedItemsTable(attachedDatabase, alias);
+  }
+}
+
+class TrackedItem extends DataClass implements Insertable<TrackedItem> {
+  final int id;
+  final int cardId;
+  final int quantity;
+
+  /// What the user paid per copy (EUR cents).
+  final int paidCents;
+  final DateTime purchasedAt;
+
+  /// Exact owned finish: true foil, false non-foil, null unknown.
+  final bool? foil;
+
+  /// Owned language code (e.g. `en`), null = unspecified.
+  final String? language;
+
+  /// Owned condition label (e.g. `Near Mint`), null = unspecified.
+  final String? condition;
+  final String notes;
+  final DateTime createdAt;
+  const TrackedItem({
+    required this.id,
+    required this.cardId,
+    required this.quantity,
+    required this.paidCents,
+    required this.purchasedAt,
+    this.foil,
+    this.language,
+    this.condition,
+    required this.notes,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<int>(id);
+    map['card_id'] = Variable<int>(cardId);
+    map['quantity'] = Variable<int>(quantity);
+    map['paid_cents'] = Variable<int>(paidCents);
+    map['purchased_at'] = Variable<DateTime>(purchasedAt);
+    if (!nullToAbsent || foil != null) {
+      map['foil'] = Variable<bool>(foil);
+    }
+    if (!nullToAbsent || language != null) {
+      map['language'] = Variable<String>(language);
+    }
+    if (!nullToAbsent || condition != null) {
+      map['condition'] = Variable<String>(condition);
+    }
+    map['notes'] = Variable<String>(notes);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  TrackedItemsCompanion toCompanion(bool nullToAbsent) {
+    return TrackedItemsCompanion(
+      id: Value(id),
+      cardId: Value(cardId),
+      quantity: Value(quantity),
+      paidCents: Value(paidCents),
+      purchasedAt: Value(purchasedAt),
+      foil: foil == null && nullToAbsent ? const Value.absent() : Value(foil),
+      language: language == null && nullToAbsent
+          ? const Value.absent()
+          : Value(language),
+      condition: condition == null && nullToAbsent
+          ? const Value.absent()
+          : Value(condition),
+      notes: Value(notes),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory TrackedItem.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return TrackedItem(
+      id: serializer.fromJson<int>(json['id']),
+      cardId: serializer.fromJson<int>(json['cardId']),
+      quantity: serializer.fromJson<int>(json['quantity']),
+      paidCents: serializer.fromJson<int>(json['paidCents']),
+      purchasedAt: serializer.fromJson<DateTime>(json['purchasedAt']),
+      foil: serializer.fromJson<bool?>(json['foil']),
+      language: serializer.fromJson<String?>(json['language']),
+      condition: serializer.fromJson<String?>(json['condition']),
+      notes: serializer.fromJson<String>(json['notes']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<int>(id),
+      'cardId': serializer.toJson<int>(cardId),
+      'quantity': serializer.toJson<int>(quantity),
+      'paidCents': serializer.toJson<int>(paidCents),
+      'purchasedAt': serializer.toJson<DateTime>(purchasedAt),
+      'foil': serializer.toJson<bool?>(foil),
+      'language': serializer.toJson<String?>(language),
+      'condition': serializer.toJson<String?>(condition),
+      'notes': serializer.toJson<String>(notes),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  TrackedItem copyWith({
+    int? id,
+    int? cardId,
+    int? quantity,
+    int? paidCents,
+    DateTime? purchasedAt,
+    Value<bool?> foil = const Value.absent(),
+    Value<String?> language = const Value.absent(),
+    Value<String?> condition = const Value.absent(),
+    String? notes,
+    DateTime? createdAt,
+  }) => TrackedItem(
+    id: id ?? this.id,
+    cardId: cardId ?? this.cardId,
+    quantity: quantity ?? this.quantity,
+    paidCents: paidCents ?? this.paidCents,
+    purchasedAt: purchasedAt ?? this.purchasedAt,
+    foil: foil.present ? foil.value : this.foil,
+    language: language.present ? language.value : this.language,
+    condition: condition.present ? condition.value : this.condition,
+    notes: notes ?? this.notes,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  TrackedItem copyWithCompanion(TrackedItemsCompanion data) {
+    return TrackedItem(
+      id: data.id.present ? data.id.value : this.id,
+      cardId: data.cardId.present ? data.cardId.value : this.cardId,
+      quantity: data.quantity.present ? data.quantity.value : this.quantity,
+      paidCents: data.paidCents.present ? data.paidCents.value : this.paidCents,
+      purchasedAt: data.purchasedAt.present
+          ? data.purchasedAt.value
+          : this.purchasedAt,
+      foil: data.foil.present ? data.foil.value : this.foil,
+      language: data.language.present ? data.language.value : this.language,
+      condition: data.condition.present ? data.condition.value : this.condition,
+      notes: data.notes.present ? data.notes.value : this.notes,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackedItem(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('quantity: $quantity, ')
+          ..write('paidCents: $paidCents, ')
+          ..write('purchasedAt: $purchasedAt, ')
+          ..write('foil: $foil, ')
+          ..write('language: $language, ')
+          ..write('condition: $condition, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    cardId,
+    quantity,
+    paidCents,
+    purchasedAt,
+    foil,
+    language,
+    condition,
+    notes,
+    createdAt,
+  );
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is TrackedItem &&
+          other.id == this.id &&
+          other.cardId == this.cardId &&
+          other.quantity == this.quantity &&
+          other.paidCents == this.paidCents &&
+          other.purchasedAt == this.purchasedAt &&
+          other.foil == this.foil &&
+          other.language == this.language &&
+          other.condition == this.condition &&
+          other.notes == this.notes &&
+          other.createdAt == this.createdAt);
+}
+
+class TrackedItemsCompanion extends UpdateCompanion<TrackedItem> {
+  final Value<int> id;
+  final Value<int> cardId;
+  final Value<int> quantity;
+  final Value<int> paidCents;
+  final Value<DateTime> purchasedAt;
+  final Value<bool?> foil;
+  final Value<String?> language;
+  final Value<String?> condition;
+  final Value<String> notes;
+  final Value<DateTime> createdAt;
+  const TrackedItemsCompanion({
+    this.id = const Value.absent(),
+    this.cardId = const Value.absent(),
+    this.quantity = const Value.absent(),
+    this.paidCents = const Value.absent(),
+    this.purchasedAt = const Value.absent(),
+    this.foil = const Value.absent(),
+    this.language = const Value.absent(),
+    this.condition = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  });
+  TrackedItemsCompanion.insert({
+    this.id = const Value.absent(),
+    required int cardId,
+    this.quantity = const Value.absent(),
+    required int paidCents,
+    required DateTime purchasedAt,
+    this.foil = const Value.absent(),
+    this.language = const Value.absent(),
+    this.condition = const Value.absent(),
+    this.notes = const Value.absent(),
+    this.createdAt = const Value.absent(),
+  }) : cardId = Value(cardId),
+       paidCents = Value(paidCents),
+       purchasedAt = Value(purchasedAt);
+  static Insertable<TrackedItem> custom({
+    Expression<int>? id,
+    Expression<int>? cardId,
+    Expression<int>? quantity,
+    Expression<int>? paidCents,
+    Expression<DateTime>? purchasedAt,
+    Expression<bool>? foil,
+    Expression<String>? language,
+    Expression<String>? condition,
+    Expression<String>? notes,
+    Expression<DateTime>? createdAt,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (cardId != null) 'card_id': cardId,
+      if (quantity != null) 'quantity': quantity,
+      if (paidCents != null) 'paid_cents': paidCents,
+      if (purchasedAt != null) 'purchased_at': purchasedAt,
+      if (foil != null) 'foil': foil,
+      if (language != null) 'language': language,
+      if (condition != null) 'condition': condition,
+      if (notes != null) 'notes': notes,
+      if (createdAt != null) 'created_at': createdAt,
+    });
+  }
+
+  TrackedItemsCompanion copyWith({
+    Value<int>? id,
+    Value<int>? cardId,
+    Value<int>? quantity,
+    Value<int>? paidCents,
+    Value<DateTime>? purchasedAt,
+    Value<bool?>? foil,
+    Value<String?>? language,
+    Value<String?>? condition,
+    Value<String>? notes,
+    Value<DateTime>? createdAt,
+  }) {
+    return TrackedItemsCompanion(
+      id: id ?? this.id,
+      cardId: cardId ?? this.cardId,
+      quantity: quantity ?? this.quantity,
+      paidCents: paidCents ?? this.paidCents,
+      purchasedAt: purchasedAt ?? this.purchasedAt,
+      foil: foil ?? this.foil,
+      language: language ?? this.language,
+      condition: condition ?? this.condition,
+      notes: notes ?? this.notes,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<int>(id.value);
+    }
+    if (cardId.present) {
+      map['card_id'] = Variable<int>(cardId.value);
+    }
+    if (quantity.present) {
+      map['quantity'] = Variable<int>(quantity.value);
+    }
+    if (paidCents.present) {
+      map['paid_cents'] = Variable<int>(paidCents.value);
+    }
+    if (purchasedAt.present) {
+      map['purchased_at'] = Variable<DateTime>(purchasedAt.value);
+    }
+    if (foil.present) {
+      map['foil'] = Variable<bool>(foil.value);
+    }
+    if (language.present) {
+      map['language'] = Variable<String>(language.value);
+    }
+    if (condition.present) {
+      map['condition'] = Variable<String>(condition.value);
+    }
+    if (notes.present) {
+      map['notes'] = Variable<String>(notes.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('TrackedItemsCompanion(')
+          ..write('id: $id, ')
+          ..write('cardId: $cardId, ')
+          ..write('quantity: $quantity, ')
+          ..write('paidCents: $paidCents, ')
+          ..write('purchasedAt: $purchasedAt, ')
+          ..write('foil: $foil, ')
+          ..write('language: $language, ')
+          ..write('condition: $condition, ')
+          ..write('notes: $notes, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+}
+
 class $PriceSnapshotsTable extends PriceSnapshots
     with TableInfo<$PriceSnapshotsTable, PriceSnapshot> {
   @override
@@ -2902,6 +3508,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   late final $GamesTable games = $GamesTable(this);
   late final $CardsTable cards = $CardsTable(this);
   late final $WatchlistItemsTable watchlistItems = $WatchlistItemsTable(this);
+  late final $TrackedItemsTable trackedItems = $TrackedItemsTable(this);
   late final $PriceSnapshotsTable priceSnapshots = $PriceSnapshotsTable(this);
   late final $SyncRunsTable syncRuns = $SyncRunsTable(this);
   @override
@@ -2912,6 +3519,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     games,
     cards,
     watchlistItems,
+    trackedItems,
     priceSnapshots,
     syncRuns,
   ];
@@ -3256,6 +3864,24 @@ final class $$CardsTableReferences
     );
   }
 
+  static MultiTypedResultKey<$TrackedItemsTable, List<TrackedItem>>
+  _trackedItemsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
+    db.trackedItems,
+    aliasName: 'cards__id__tracked_items__card_id',
+  );
+
+  $$TrackedItemsTableProcessedTableManager get trackedItemsRefs {
+    final manager = $$TrackedItemsTableTableManager(
+      $_db,
+      $_db.trackedItems,
+    ).filter((f) => f.cardId.id.sqlEquals($_itemColumn<int>('id')!));
+
+    final cache = $_typedResult.readTableOrNull(_trackedItemsRefsTable($_db));
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: cache),
+    );
+  }
+
   static MultiTypedResultKey<$PriceSnapshotsTable, List<PriceSnapshot>>
   _priceSnapshotsRefsTable(_$AppDatabase db) => MultiTypedResultKey.fromTable(
     db.priceSnapshots,
@@ -3362,6 +3988,31 @@ class $$CardsTableFilterComposer extends Composer<_$AppDatabase, $CardsTable> {
           }) => $$WatchlistItemsTableFilterComposer(
             $db: $db,
             $table: $db.watchlistItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
+  Expression<bool> trackedItemsRefs(
+    Expression<bool> Function($$TrackedItemsTableFilterComposer f) f,
+  ) {
+    final $$TrackedItemsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.trackedItems,
+      getReferencedColumn: (t) => t.cardId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TrackedItemsTableFilterComposer(
+            $db: $db,
+            $table: $db.trackedItems,
             $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
             joinBuilder: joinBuilder,
             $removeJoinBuilderFromRootComposer:
@@ -3557,6 +4208,31 @@ class $$CardsTableAnnotationComposer
     return f(composer);
   }
 
+  Expression<T> trackedItemsRefs<T extends Object>(
+    Expression<T> Function($$TrackedItemsTableAnnotationComposer a) f,
+  ) {
+    final $$TrackedItemsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.id,
+      referencedTable: $db.trackedItems,
+      getReferencedColumn: (t) => t.cardId,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$TrackedItemsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.trackedItems,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return f(composer);
+  }
+
   Expression<T> priceSnapshotsRefs<T extends Object>(
     Expression<T> Function($$PriceSnapshotsTableAnnotationComposer a) f,
   ) {
@@ -3599,6 +4275,7 @@ class $$CardsTableTableManager
           PrefetchHooks Function({
             bool gameId,
             bool watchlistItemsRefs,
+            bool trackedItemsRefs,
             bool priceSnapshotsRefs,
           })
         > {
@@ -3669,12 +4346,14 @@ class $$CardsTableTableManager
               ({
                 gameId = false,
                 watchlistItemsRefs = false,
+                trackedItemsRefs = false,
                 priceSnapshotsRefs = false,
               }) {
                 return PrefetchHooks(
                   db: db,
                   explicitlyWatchedTables: [
                     if (watchlistItemsRefs) db.watchlistItems,
+                    if (trackedItemsRefs) db.trackedItems,
                     if (priceSnapshotsRefs) db.priceSnapshots,
                   ],
                   addJoins:
@@ -3730,6 +4409,27 @@ class $$CardsTableTableManager
                               ),
                           typedResults: items,
                         ),
+                      if (trackedItemsRefs)
+                        await $_getPrefetchedData<
+                          Card,
+                          $CardsTable,
+                          TrackedItem
+                        >(
+                          currentTable: table,
+                          referencedTable: $$CardsTableReferences
+                              ._trackedItemsRefsTable(db),
+                          managerFromTypedResult: (p0) =>
+                              $$CardsTableReferences(
+                                db,
+                                table,
+                                p0,
+                              ).trackedItemsRefs,
+                          referencedItemsForCurrentItem:
+                              (item, referencedItems) => referencedItems.where(
+                                (e) => e.cardId == item.id,
+                              ),
+                          typedResults: items,
+                        ),
                       if (priceSnapshotsRefs)
                         await $_getPrefetchedData<
                           Card,
@@ -3774,6 +4474,7 @@ typedef $$CardsTableProcessedTableManager =
       PrefetchHooks Function({
         bool gameId,
         bool watchlistItemsRefs,
+        bool trackedItemsRefs,
         bool priceSnapshotsRefs,
       })
     >;
@@ -4233,6 +4934,412 @@ typedef $$WatchlistItemsTableProcessedTableManager =
       $$WatchlistItemsTableUpdateCompanionBuilder,
       (WatchlistItem, $$WatchlistItemsTableReferences),
       WatchlistItem,
+      PrefetchHooks Function({bool cardId})
+    >;
+typedef $$TrackedItemsTableCreateCompanionBuilder =
+    TrackedItemsCompanion Function({
+      Value<int> id,
+      required int cardId,
+      Value<int> quantity,
+      required int paidCents,
+      required DateTime purchasedAt,
+      Value<bool?> foil,
+      Value<String?> language,
+      Value<String?> condition,
+      Value<String> notes,
+      Value<DateTime> createdAt,
+    });
+typedef $$TrackedItemsTableUpdateCompanionBuilder =
+    TrackedItemsCompanion Function({
+      Value<int> id,
+      Value<int> cardId,
+      Value<int> quantity,
+      Value<int> paidCents,
+      Value<DateTime> purchasedAt,
+      Value<bool?> foil,
+      Value<String?> language,
+      Value<String?> condition,
+      Value<String> notes,
+      Value<DateTime> createdAt,
+    });
+
+final class $$TrackedItemsTableReferences
+    extends BaseReferences<_$AppDatabase, $TrackedItemsTable, TrackedItem> {
+  $$TrackedItemsTableReferences(super.$_db, super.$_table, super.$_typedResult);
+
+  static $CardsTable _cardIdTable(_$AppDatabase db) =>
+      db.cards.createAlias('tracked_items__card_id__cards__id');
+
+  $$CardsTableProcessedTableManager get cardId {
+    final $_column = $_itemColumn<int>('card_id')!;
+
+    final manager = $$CardsTableTableManager(
+      $_db,
+      $_db.cards,
+    ).filter((f) => f.id.sqlEquals($_column));
+    final item = $_typedResult.readTableOrNull(_cardIdTable($_db));
+    if (item == null) return manager;
+    return ProcessedTableManager(
+      manager.$state.copyWith(prefetchedData: [item]),
+    );
+  }
+}
+
+class $$TrackedItemsTableFilterComposer
+    extends Composer<_$AppDatabase, $TrackedItemsTable> {
+  $$TrackedItemsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get paidCents => $composableBuilder(
+    column: $table.paidCents,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get purchasedAt => $composableBuilder(
+    column: $table.purchasedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<bool> get foil => $composableBuilder(
+    column: $table.foil,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get condition => $composableBuilder(
+    column: $table.condition,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  $$CardsTableFilterComposer get cardId {
+    final $$CardsTableFilterComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cardId,
+      referencedTable: $db.cards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardsTableFilterComposer(
+            $db: $db,
+            $table: $db.cards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackedItemsTableOrderingComposer
+    extends Composer<_$AppDatabase, $TrackedItemsTable> {
+  $$TrackedItemsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<int> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get quantity => $composableBuilder(
+    column: $table.quantity,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get paidCents => $composableBuilder(
+    column: $table.paidCents,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get purchasedAt => $composableBuilder(
+    column: $table.purchasedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<bool> get foil => $composableBuilder(
+    column: $table.foil,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get language => $composableBuilder(
+    column: $table.language,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get condition => $composableBuilder(
+    column: $table.condition,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get notes => $composableBuilder(
+    column: $table.notes,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  $$CardsTableOrderingComposer get cardId {
+    final $$CardsTableOrderingComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cardId,
+      referencedTable: $db.cards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardsTableOrderingComposer(
+            $db: $db,
+            $table: $db.cards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackedItemsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $TrackedItemsTable> {
+  $$TrackedItemsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<int> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<int> get quantity =>
+      $composableBuilder(column: $table.quantity, builder: (column) => column);
+
+  GeneratedColumn<int> get paidCents =>
+      $composableBuilder(column: $table.paidCents, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get purchasedAt => $composableBuilder(
+    column: $table.purchasedAt,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<bool> get foil =>
+      $composableBuilder(column: $table.foil, builder: (column) => column);
+
+  GeneratedColumn<String> get language =>
+      $composableBuilder(column: $table.language, builder: (column) => column);
+
+  GeneratedColumn<String> get condition =>
+      $composableBuilder(column: $table.condition, builder: (column) => column);
+
+  GeneratedColumn<String> get notes =>
+      $composableBuilder(column: $table.notes, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  $$CardsTableAnnotationComposer get cardId {
+    final $$CardsTableAnnotationComposer composer = $composerBuilder(
+      composer: this,
+      getCurrentColumn: (t) => t.cardId,
+      referencedTable: $db.cards,
+      getReferencedColumn: (t) => t.id,
+      builder:
+          (
+            joinBuilder, {
+            $addJoinBuilderToRootComposer,
+            $removeJoinBuilderFromRootComposer,
+          }) => $$CardsTableAnnotationComposer(
+            $db: $db,
+            $table: $db.cards,
+            $addJoinBuilderToRootComposer: $addJoinBuilderToRootComposer,
+            joinBuilder: joinBuilder,
+            $removeJoinBuilderFromRootComposer:
+                $removeJoinBuilderFromRootComposer,
+          ),
+    );
+    return composer;
+  }
+}
+
+class $$TrackedItemsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $TrackedItemsTable,
+          TrackedItem,
+          $$TrackedItemsTableFilterComposer,
+          $$TrackedItemsTableOrderingComposer,
+          $$TrackedItemsTableAnnotationComposer,
+          $$TrackedItemsTableCreateCompanionBuilder,
+          $$TrackedItemsTableUpdateCompanionBuilder,
+          (TrackedItem, $$TrackedItemsTableReferences),
+          TrackedItem,
+          PrefetchHooks Function({bool cardId})
+        > {
+  $$TrackedItemsTableTableManager(_$AppDatabase db, $TrackedItemsTable table)
+    : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$TrackedItemsTableFilterComposer($db: db, $table: table),
+          createOrderingComposer: () =>
+              $$TrackedItemsTableOrderingComposer($db: db, $table: table),
+          createComputedFieldComposer: () =>
+              $$TrackedItemsTableAnnotationComposer($db: db, $table: table),
+          updateCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                Value<int> cardId = const Value.absent(),
+                Value<int> quantity = const Value.absent(),
+                Value<int> paidCents = const Value.absent(),
+                Value<DateTime> purchasedAt = const Value.absent(),
+                Value<bool?> foil = const Value.absent(),
+                Value<String?> language = const Value.absent(),
+                Value<String?> condition = const Value.absent(),
+                Value<String> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => TrackedItemsCompanion(
+                id: id,
+                cardId: cardId,
+                quantity: quantity,
+                paidCents: paidCents,
+                purchasedAt: purchasedAt,
+                foil: foil,
+                language: language,
+                condition: condition,
+                notes: notes,
+                createdAt: createdAt,
+              ),
+          createCompanionCallback:
+              ({
+                Value<int> id = const Value.absent(),
+                required int cardId,
+                Value<int> quantity = const Value.absent(),
+                required int paidCents,
+                required DateTime purchasedAt,
+                Value<bool?> foil = const Value.absent(),
+                Value<String?> language = const Value.absent(),
+                Value<String?> condition = const Value.absent(),
+                Value<String> notes = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+              }) => TrackedItemsCompanion.insert(
+                id: id,
+                cardId: cardId,
+                quantity: quantity,
+                paidCents: paidCents,
+                purchasedAt: purchasedAt,
+                foil: foil,
+                language: language,
+                condition: condition,
+                notes: notes,
+                createdAt: createdAt,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<$TrackedItemsTable, TrackedItem>(table),
+                  $$TrackedItemsTableReferences(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: ({cardId = false}) {
+            return PrefetchHooks(
+              db: db,
+              explicitlyWatchedTables: [],
+              addJoins:
+                  <
+                    T extends TableManagerState<
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic,
+                      dynamic
+                    >
+                  >(state) {
+                    if (cardId) {
+                      state = state.withJoin(
+                        currentTable: table,
+                        currentColumn: table.cardId,
+                        referencedTable: $$TrackedItemsTableReferences
+                            ._cardIdTable(db),
+                        referencedColumn: $$TrackedItemsTableReferences
+                            ._cardIdTable(db)
+                            .id,
+                      ) as T;
+                    }
+
+                    return state;
+                  },
+              getPrefetchedDataCallback: (items) async {
+                return [];
+              },
+            );
+          },
+        ),
+      );
+}
+
+typedef $$TrackedItemsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $TrackedItemsTable,
+      TrackedItem,
+      $$TrackedItemsTableFilterComposer,
+      $$TrackedItemsTableOrderingComposer,
+      $$TrackedItemsTableAnnotationComposer,
+      $$TrackedItemsTableCreateCompanionBuilder,
+      $$TrackedItemsTableUpdateCompanionBuilder,
+      (TrackedItem, $$TrackedItemsTableReferences),
+      TrackedItem,
       PrefetchHooks Function({bool cardId})
     >;
 typedef $$PriceSnapshotsTableCreateCompanionBuilder =
@@ -4967,6 +6074,8 @@ class $AppDatabaseManager {
       $$CardsTableTableManager(_db, _db.cards);
   $$WatchlistItemsTableTableManager get watchlistItems =>
       $$WatchlistItemsTableTableManager(_db, _db.watchlistItems);
+  $$TrackedItemsTableTableManager get trackedItems =>
+      $$TrackedItemsTableTableManager(_db, _db.trackedItems);
   $$PriceSnapshotsTableTableManager get priceSnapshots =>
       $$PriceSnapshotsTableTableManager(_db, _db.priceSnapshots);
   $$SyncRunsTableTableManager get syncRuns =>

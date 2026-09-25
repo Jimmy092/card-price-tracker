@@ -7,6 +7,7 @@ import '../data/database.dart';
 import '../services/sync_service.dart';
 import '../widgets/card_thumb.dart';
 import '../widgets/economics_banner.dart';
+import '../widgets/month_price_sparkline.dart';
 import '../widgets/price_format.dart';
 import '../widgets/ui_kit.dart';
 
@@ -222,7 +223,7 @@ class _WatchlistCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                     ),
                   )
-                else
+                else ...[
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
@@ -266,6 +267,13 @@ class _WatchlistCard extends StatelessWidget {
                         ),
                     ],
                   ),
+                  const SizedBox(height: 10),
+                  MonthPriceSparkline(
+                    cmSnapshots: row.cmMonth,
+                    ctSnapshots: row.ctMonth,
+                    latestCm: row.latestCm,
+                  ),
+                ],
               ],
             ),
           ),

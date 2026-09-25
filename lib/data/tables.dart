@@ -43,6 +43,24 @@ class WatchlistItems extends Table {
   DateTimeColumn get addedAt => dateTime().withDefault(currentDateAndTime)();
 }
 
+/// Owned copies / purchase lots for portfolio P&L vs live CM/CT.
+class TrackedItems extends Table {
+  IntColumn get id => integer().autoIncrement()();
+  IntColumn get cardId => integer().references(Cards, #id)();
+  IntColumn get quantity => integer().withDefault(const Constant(1))();
+  /// What the user paid per copy (EUR cents).
+  IntColumn get paidCents => integer()();
+  DateTimeColumn get purchasedAt => dateTime()();
+  /// Exact owned finish: true foil, false non-foil, null unknown.
+  BoolColumn get foil => boolean().nullable()();
+  /// Owned language code (e.g. `en`), null = unspecified.
+  TextColumn get language => text().nullable()();
+  /// Owned condition label (e.g. `Near Mint`), null = unspecified.
+  TextColumn get condition => text().nullable()();
+  TextColumn get notes => text().withDefault(const Constant(''))();
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+}
+
 /// Never blend Cardmarket and CardTrader values in one row.
 class PriceSnapshots extends Table {
   IntColumn get id => integer().autoIncrement()();

@@ -5,13 +5,22 @@ import 'tables.dart';
 
 part 'database.g.dart';
 
-@DriftDatabase(tables: [Games, Cards, WatchlistItems, PriceSnapshots, SyncRuns])
+@DriftDatabase(
+  tables: [
+    Games,
+    Cards,
+    WatchlistItems,
+    TrackedItems,
+    PriceSnapshots,
+    SyncRuns,
+  ],
+)
 class AppDatabase extends _$AppDatabase {
   AppDatabase([QueryExecutor? executor])
       : super(executor ?? driftDatabase(name: 'card_price_tracker'));
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -39,6 +48,9 @@ class AppDatabase extends _$AppDatabase {
             await m.addColumn(watchlistItems, watchlistItems.sellerName);
             await m.addColumn(watchlistItems, watchlistItems.minSellerQuantity);
           }
+          if (from < 5) {
+            await m.createTable(trackedItems);
+          }
         },
       );
 
@@ -51,12 +63,24 @@ class AppDatabase extends _$AppDatabase {
       ..orderBy([OrderingTerm.asc(cards.name)]);
 
     return query.watch().asyncMap((rows) async {
+      final cardsList = [
+        for (final row in rows) row.readTable(cards),
+      ];
+      final historyByCard = await _monthHistoryByCardIds(
+        cardsList.map((c) => c.id),
+      );
+
       final result = <WatchlistRow>[];
       for (final row in rows) {
         final item = row.readTable(watchlistItems);
         final card = row.readTable(cards);
-        final latestCm = await _latestSnapshot(card.id, 'cardmarket');
-        final latestCt = await _latestSnapshot(card.id, 'cardtrader');
+        final hist = historyByCard[card.id] ?? (<PriceSnapshot>[], <PriceSnapshot>[]);
+        final latestCm = hist.$1.isEmpty
+            ? await _latestSnapshot(card.id, 'cardmarket')
+            : hist.$1.last;
+        final latestCt = hist.$2.isEmpty
+            ? await _latestSnapshot(card.id, 'cardtrader')
+            : hist.$2.last;
         final prevCm = await _previousDistinctCmTrend(card.id, latestCm);
         result.add(
           WatchlistRow(
@@ -65,11 +89,56 @@ class AppDatabase extends _$AppDatabase {
             latestCm: latestCm,
             latestCt: latestCt,
             previousCm: prevCm,
+            cmMonth: hist.$1,
+            ctMonth: hist.$2,
           ),
         );
       }
       return result;
     });
+  }
+
+  /// CM / CT snapshots from the last 30 days, plus the latest older ones so
+  /// charts always have an anchor point.
+  Future<Map<int, (List<PriceSnapshot>, List<PriceSnapshot>)>>
+      _monthHistoryByCardIds(Iterable<int> cardIds) async {
+    final ids = cardIds.toList();
+    if (ids.isEmpty) return {};
+
+    final since = DateTime.now().subtract(const Duration(days: 30));
+    final recent = await (select(priceSnapshots)
+          ..where(
+            (t) =>
+                t.cardId.isIn(ids) & t.capturedAt.isBiggerOrEqualValue(since),
+          )
+          ..orderBy([(t) => OrderingTerm.asc(t.capturedAt)]))
+        .get();
+
+    final cm = <int, List<PriceSnapshot>>{};
+    final ct = <int, List<PriceSnapshot>>{};
+    for (final s in recent) {
+      if (s.source == 'cardmarket') {
+        (cm[s.cardId] ??= []).add(s);
+      } else if (s.source == 'cardtrader') {
+        (ct[s.cardId] ??= []).add(s);
+      }
+    }
+
+    // Ensure every card has at least the absolute latest snapshot per source.
+    for (final id in ids) {
+      if (cm[id] == null || cm[id]!.isEmpty) {
+        final latest = await _latestSnapshot(id, 'cardmarket');
+        if (latest != null) cm[id] = [latest];
+      }
+      if (ct[id] == null || ct[id]!.isEmpty) {
+        final latest = await _latestSnapshot(id, 'cardtrader');
+        if (latest != null) ct[id] = [latest];
+      }
+    }
+
+    return {
+      for (final id in ids) id: (cm[id] ?? <PriceSnapshot>[], ct[id] ?? <PriceSnapshot>[]),
+    };
   }
 
   Future<PriceSnapshot?> _latestSnapshot(int cardId, String source) {
@@ -113,6 +182,13 @@ class AppDatabase extends _$AppDatabase {
       })
       ..orderBy([(t) => OrderingTerm.asc(t.capturedAt)]);
     return q.get();
+  }
+
+  Stream<List<PriceSnapshot>> watchSnapshotsForCard(int cardId) {
+    return (select(priceSnapshots)
+          ..where((t) => t.cardId.equals(cardId))
+          ..orderBy([(t) => OrderingTerm.asc(t.capturedAt)]))
+        .watch();
   }
 
   Future<Card?> findCardByCtBlueprint(int blueprintId) {
@@ -255,6 +331,174 @@ class AppDatabase extends _$AppDatabase {
         .go();
   }
 
+  // --- Portfolio tracking (purchase lots) ---
+
+  Stream<List<TrackedRow>> watchTracked() {
+    final query = select(trackedItems).join([
+      innerJoin(cards, cards.id.equalsExp(trackedItems.cardId)),
+    ])
+      ..orderBy([OrderingTerm.desc(trackedItems.purchasedAt)]);
+
+    return query.watch().asyncMap((rows) async {
+      final cardsList = [
+        for (final row in rows) row.readTable(cards),
+      ];
+      final historyByCard = await _monthHistoryByCardIds(
+        cardsList.map((c) => c.id),
+      );
+
+      final result = <TrackedRow>[];
+      for (final row in rows) {
+        final item = row.readTable(trackedItems);
+        final card = row.readTable(cards);
+        final hist = historyByCard[card.id] ?? (<PriceSnapshot>[], <PriceSnapshot>[]);
+        final latestCm = hist.$1.isEmpty
+            ? await _latestSnapshot(card.id, 'cardmarket')
+            : hist.$1.last;
+        final latestCt = hist.$2.isEmpty
+            ? await _latestSnapshot(card.id, 'cardtrader')
+            : hist.$2.last;
+        result.add(
+          TrackedRow(
+            item: item,
+            card: card,
+            latestCm: latestCm,
+            latestCt: latestCt,
+            cmMonth: hist.$1,
+            ctMonth: hist.$2,
+          ),
+        );
+      }
+      return result;
+    });
+  }
+
+  Future<List<TrackedEntry>> allTrackedEntries() async {
+    final q = select(trackedItems).join([
+      innerJoin(cards, cards.id.equalsExp(trackedItems.cardId)),
+    ]);
+    final rows = await q.get();
+    return rows
+        .map(
+          (r) => TrackedEntry(
+            card: r.readTable(cards),
+            item: r.readTable(trackedItems),
+          ),
+        )
+        .toList();
+  }
+
+  /// Cards that need CM/CT price sync (watchlist ∪ tracking).
+  /// Watchlist listing filters win when the same card is on both lists.
+  Future<List<PriceSyncTarget>> allPriceSyncTargets({int? onlyCardId}) async {
+    final byCard = <int, PriceSyncTarget>{};
+
+    for (final e in await allWatchlistEntries()) {
+      if (onlyCardId != null && e.card.id != onlyCardId) continue;
+      byCard[e.card.id] = PriceSyncTarget(
+        card: e.card,
+        foil: e.item.foil,
+        language: e.item.language,
+        minCondition: e.item.minCondition,
+        sellerName: e.item.sellerName,
+        minSellerQuantity: e.item.minSellerQuantity,
+      );
+    }
+
+    for (final e in await allTrackedEntries()) {
+      if (onlyCardId != null && e.card.id != onlyCardId) continue;
+      byCard.putIfAbsent(
+        e.card.id,
+        () => PriceSyncTarget(
+          card: e.card,
+          foil: e.item.foil,
+          language: e.item.language,
+          minCondition: e.item.condition,
+          sellerName: null,
+          minSellerQuantity: null,
+        ),
+      );
+    }
+
+    return byCard.values.toList();
+  }
+
+  /// Ensure a [Cards] row exists, then insert a purchase lot.
+  Future<int> addTrackedCard({
+    required String name,
+    required String expansion,
+    required int paidCents,
+    required DateTime purchasedAt,
+    int? cardTraderBlueprintId,
+    int? cardTraderExpansionId,
+    int? cardmarketProductId,
+    String? imageUrl,
+    bool? foil,
+    String? language,
+    String? condition,
+    int quantity = 1,
+    String notes = '',
+  }) async {
+    final existing = cardTraderBlueprintId != null
+        ? await findCardByCtBlueprint(cardTraderBlueprintId)
+        : cardmarketProductId != null
+            ? await findCardByCmProduct(cardmarketProductId)
+            : null;
+
+    late final int cardId;
+    if (existing != null) {
+      cardId = existing.id;
+      await (update(cards)..where((t) => t.id.equals(cardId))).write(
+        CardsCompanion(
+          name: Value(name),
+          expansion: Value(expansion),
+          imageUrl: imageUrl != null && imageUrl.isNotEmpty
+              ? Value(imageUrl)
+              : const Value.absent(),
+          cardTraderBlueprintId: cardTraderBlueprintId != null
+              ? Value(cardTraderBlueprintId)
+              : const Value.absent(),
+          cardTraderExpansionId: cardTraderExpansionId != null
+              ? Value(cardTraderExpansionId)
+              : const Value.absent(),
+          cardmarketProductId: cardmarketProductId != null
+              ? Value(cardmarketProductId)
+              : const Value.absent(),
+        ),
+      );
+    } else {
+      cardId = await into(cards).insert(
+        CardsCompanion.insert(
+          gameId: 'mtg',
+          name: name,
+          expansion: Value(expansion),
+          imageUrl: Value(imageUrl),
+          cardTraderBlueprintId: Value(cardTraderBlueprintId),
+          cardTraderExpansionId: Value(cardTraderExpansionId),
+          cardmarketProductId: Value(cardmarketProductId),
+        ),
+      );
+    }
+
+    await into(trackedItems).insert(
+      TrackedItemsCompanion.insert(
+        cardId: cardId,
+        paidCents: paidCents,
+        purchasedAt: purchasedAt,
+        quantity: Value(quantity < 1 ? 1 : quantity),
+        foil: Value(foil),
+        language: Value(language),
+        condition: Value(condition),
+        notes: Value(notes),
+      ),
+    );
+    return cardId;
+  }
+
+  Future<void> removeTrackedItem(int trackedItemId) async {
+    await (delete(trackedItems)..where((t) => t.id.equals(trackedItemId))).go();
+  }
+
   Future<int> startSyncRun(String source) {
     return into(syncRuns).insert(
       SyncRunsCompanion.insert(
@@ -316,6 +560,8 @@ class WatchlistRow {
     this.latestCm,
     this.latestCt,
     this.previousCm,
+    this.cmMonth = const [],
+    this.ctMonth = const [],
   });
 
   final WatchlistItem item;
@@ -323,6 +569,8 @@ class WatchlistRow {
   final PriceSnapshot? latestCm;
   final PriceSnapshot? latestCt;
   final PriceSnapshot? previousCm;
+  final List<PriceSnapshot> cmMonth;
+  final List<PriceSnapshot> ctMonth;
 
   double? get cmTrendChangePct {
     final cur = latestCm?.cmTrendCents;
@@ -351,4 +599,92 @@ class WatchlistEntry {
   WatchlistEntry({required this.card, required this.item});
   final Card card;
   final WatchlistItem item;
+}
+
+class TrackedEntry {
+  TrackedEntry({required this.card, required this.item});
+  final Card card;
+  final TrackedItem item;
+}
+
+/// Unified target for CM/CT price sync (watchlist or tracking).
+class PriceSyncTarget {
+  PriceSyncTarget({
+    required this.card,
+    this.foil,
+    this.language,
+    this.minCondition,
+    this.sellerName,
+    this.minSellerQuantity,
+  });
+
+  final Card card;
+  final bool? foil;
+  final String? language;
+  final String? minCondition;
+  final String? sellerName;
+  final int? minSellerQuantity;
+}
+
+class TrackedRow {
+  TrackedRow({
+    required this.item,
+    required this.card,
+    this.latestCm,
+    this.latestCt,
+    this.cmMonth = const [],
+    this.ctMonth = const [],
+  });
+
+  final TrackedItem item;
+  final Card card;
+  final PriceSnapshot? latestCm;
+  final PriceSnapshot? latestCt;
+  final List<PriceSnapshot> cmMonth;
+  final List<PriceSnapshot> ctMonth;
+
+  int get costBasisCents => item.paidCents * item.quantity;
+
+  int? get cmNowCents => latestCm?.cmTrendCents;
+  int? get ctNowCents =>
+      latestCt?.ctMinZeroCents ?? latestCt?.ctMinDirectCents;
+
+  int? get cmValueCents {
+    final u = cmNowCents;
+    if (u == null) return null;
+    return u * item.quantity;
+  }
+
+  int? get ctValueCents {
+    final u = ctNowCents;
+    if (u == null) return null;
+    return u * item.quantity;
+  }
+
+  /// Market now − paid (per-copy), times quantity. Positive = up.
+  int? get cmPnlCents {
+    final now = cmNowCents;
+    if (now == null) return null;
+    return (now - item.paidCents) * item.quantity;
+  }
+
+  int? get ctPnlCents {
+    final now = ctNowCents;
+    if (now == null) return null;
+    return (now - item.paidCents) * item.quantity;
+  }
+
+  double? get cmPnlPct {
+    final paid = costBasisCents;
+    final pnl = cmPnlCents;
+    if (pnl == null || paid == 0) return null;
+    return (pnl / paid) * 100;
+  }
+
+  double? get ctPnlPct {
+    final paid = costBasisCents;
+    final pnl = ctPnlCents;
+    if (pnl == null || paid == 0) return null;
+    return (pnl / paid) * 100;
+  }
 }

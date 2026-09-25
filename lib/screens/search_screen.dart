@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart' hide Card;
+import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 
 import '../data/database.dart';
@@ -10,6 +11,7 @@ import '../services/scryfall_client.dart';
 import '../services/sync_service.dart';
 import '../widgets/card_thumb.dart';
 import '../widgets/price_format.dart';
+import '../widgets/track_purchase_sheet.dart';
 import '../widgets/ui_kit.dart';
 
 /// One printing of a card (across sets), optionally linked to a CT blueprint.
@@ -120,13 +122,14 @@ class _SearchScreenState extends State<SearchScreen> {
         if (!_hasActiveListingFilters) out.add(row);
         continue;
       }
-      if (_loadingPrices.contains(bp) && !_markets.containsKey(bp)) {
-        // Still loading this printing's filtered market.
+      final market = _markets[bp];
+      if (market == null) {
+        // Still loading, queued, or errored — keep visible until we know
+        // there are zero filtered listings.
         out.add(row);
         continue;
       }
-      final market = _markets[bp];
-      if (market != null && market.listingCount > 0) {
+      if (market.listingCount > 0) {
         out.add(row);
       }
     }
@@ -271,6 +274,7 @@ class _SearchScreenState extends State<SearchScreen> {
       _expandedKeys.clear();
       _priceErrors.clear();
       _loadingPrices.clear();
+      _cmFromByPrinting.clear();
       _priceGen++;
     });
 
@@ -278,45 +282,56 @@ class _SearchScreenState extends State<SearchScreen> {
       final scryfall = context.read<ScryfallClient>();
       final ct = context.read<CardTraderClient>();
 
-      // Warm CT expansion index once.
-      await ct.listMtgExpansions();
-      if (!mounted || gen != _gen) return;
-
+      // Scryfall first so the list appears quickly, then match CT in bulk.
+      final expansionsFuture = ct.listMtgExpansions();
       final printings = await scryfall.printingsForExactName(name);
       if (!mounted || gen != _gen) return;
 
-      final rows = <_PrintingRow>[];
-      for (final p in printings) {
-        CtBlueprint? bp;
-        try {
-          bp = await ct.blueprintForPrinting(
-            setCode: p.setCode,
-            cardName: p.name,
-            scryfallId: p.id,
-          );
-        } catch (_) {
-          bp = null;
-        }
-        rows.add(_PrintingRow(printing: p, blueprint: bp));
-        if (!mounted || gen != _gen) return;
-        // Light pause when resolving many sets against CT.
-        if (rows.length % 5 == 0) {
-          await Future<void>.delayed(const Duration(milliseconds: 50));
-        }
-      }
-
-      if (!mounted || gen != _gen) return;
+      final draft = [
+        for (final p in printings) _PrintingRow(printing: p),
+      ];
       setState(() {
-        _printings = rows;
+        _printings = draft;
         _loadingPrintings = false;
       });
-
       unawaited(_refreshCmTrends());
 
-      final withBp = rows
-          .where((r) => r.blueprintId != null)
-          .map((r) => r.blueprintId!)
-          .toList();
+      await expansionsFuture;
+      if (!mounted || gen != _gen) return;
+
+      List<CtBlueprint?> matched;
+      try {
+        matched = await ct.blueprintsForPrintings([
+          for (final p in printings)
+            (
+              setCode: p.setCode,
+              cardName: p.name,
+              scryfallId: p.id,
+            ),
+        ]);
+      } catch (e) {
+        if (!mounted || gen != _gen) return;
+        // Printings still usable with CM From; CT match failed.
+        setState(() => _error = e.toString());
+        return;
+      }
+      if (!mounted || gen != _gen) return;
+
+      final rows = <_PrintingRow>[
+        for (var i = 0; i < printings.length; i++)
+          _PrintingRow(
+            printing: printings[i],
+            blueprint: i < matched.length ? matched[i] : null,
+          ),
+      ];
+      setState(() => _printings = rows);
+
+      final withBp = <int>[];
+      final seen = <int>{};
+      for (final r in rows) {
+        final id = r.blueprintId;
+        if (id != null && seen.add(id)) withBp.add(id);
+      }
       unawaited(_prefetchPrices(withBp));
     } catch (e) {
       if (!mounted || gen != _gen) return;
@@ -329,19 +344,25 @@ class _SearchScreenState extends State<SearchScreen> {
 
   Future<void> _prefetchPrices(List<int> blueprintIds) async {
     final priceGen = ++_priceGen;
+    if (blueprintIds.isEmpty) return;
     final ct = context.read<CardTraderClient>();
-    for (final id in blueprintIds) {
-      if (!mounted || priceGen != _priceGen) return;
-      if (_markets.containsKey(id) || _loadingPrices.contains(id)) continue;
-      setState(() => _loadingPrices.add(id));
-      try {
-        final market = await ct.marketplaceForBlueprint(
-          id,
-          foil: _foil,
-          language: _language,
-          minCondition: _minCondition,
-          minQuantity: _minQtyFilter,
-        );
+    final pending = [
+      for (final id in blueprintIds)
+        if (!_markets.containsKey(id) && !_loadingPrices.contains(id)) id,
+    ];
+    if (pending.isEmpty) return;
+
+    setState(() => _loadingPrices.addAll(pending));
+
+    await ct.marketplacesForBlueprints(
+      pending,
+      foil: _foil,
+      language: _language,
+      minCondition: _minCondition,
+      minQuantity: _minQtyFilter,
+      concurrency: 5,
+      shouldContinue: () => mounted && priceGen == _priceGen,
+      onEach: (id, market) {
         if (!mounted || priceGen != _priceGen) return;
         setState(() {
           _markets[id] = market;
@@ -349,15 +370,15 @@ class _SearchScreenState extends State<SearchScreen> {
           _loadingPrices.remove(id);
           _refineCmFromForBlueprint(id, market.bestPriceCents);
         });
-      } catch (e) {
+      },
+      onError: (id, e) {
         if (!mounted || priceGen != _priceGen) return;
         setState(() {
           _priceErrors[id] = e.toString();
           _loadingPrices.remove(id);
         });
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 120));
-    }
+      },
+    );
   }
 
   Future<void> _ensurePrice(int blueprintId) async {
@@ -470,6 +491,69 @@ class _SearchScreenState extends State<SearchScreen> {
           outcome.success
               ? 'Added ${bp.name} (${row.printing.setName})'
               : 'Added ${bp.name}, but prices failed: ${outcome.message}',
+        ),
+      ),
+    );
+  }
+
+  Future<void> _track(_PrintingRow row) async {
+    final bp = row.blueprint;
+    if (bp == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('No CardTrader match for this printing yet'),
+        ),
+      );
+      return;
+    }
+
+    final market = _markets[bp.id];
+    final draft = await showTrackPurchaseSheet(
+      context,
+      cardName: bp.name,
+      expansion: bp.expansionName ?? row.printing.setName,
+      initialFoil: _foil,
+      initialLanguage: _language,
+      initialCondition: _minCondition?.label,
+      suggestedPaidCents: market?.bestPriceCents,
+    );
+    if (draft == null || !mounted) return;
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(content: Text('Adding ${bp.name} to Portfolio…')),
+    );
+
+    final cardId = await context.read<AppDatabase>().addTrackedCard(
+          name: bp.name,
+          expansion: bp.expansionName ?? row.printing.setName,
+          paidCents: draft.paidCents,
+          purchasedAt: draft.purchasedAt,
+          cardTraderBlueprintId: bp.id,
+          cardTraderExpansionId: bp.expansionId,
+          cardmarketProductId: row.printing.cardmarketId,
+          imageUrl: row.imageUrl ?? bp.absoluteImageUrl,
+          foil: draft.foil,
+          language: draft.language,
+          condition: draft.condition,
+          quantity: draft.quantity,
+          notes: draft.notes,
+        );
+    if (!mounted) return;
+
+    final outcome = await context.read<SyncService>().syncWatchlistCard(cardId);
+    if (!mounted) return;
+    messenger.hideCurrentSnackBar();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          outcome.success
+              ? 'Tracked ${bp.name} — see Portfolio'
+              : 'Tracked ${bp.name}, but prices failed: ${outcome.message}',
+        ),
+        action: SnackBarAction(
+          label: 'Open',
+          onPressed: () => context.go('/portfolio'),
         ),
       ),
     );
@@ -777,6 +861,13 @@ class _SearchScreenState extends State<SearchScreen> {
                             tooltip: 'Add to watchlist',
                             icon: const Icon(Icons.add_rounded),
                             onPressed: () => _add(row),
+                          ),
+                          IconButton(
+                            tooltip: 'Track purchase',
+                            icon: const Icon(
+                              Icons.account_balance_wallet_outlined,
+                            ),
+                            onPressed: () => _track(row),
                           ),
                           AnimatedRotation(
                             turns: expanded ? 0.5 : 0,
